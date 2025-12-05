@@ -55,6 +55,17 @@ async function initDatabase() {
       console.log('ℹ Cloudinary columns migration:', err.message);
     }
     
+    // Remove NOT NULL constraint from path column (migration)
+    try {
+      await client.query(`
+        ALTER TABLE files 
+        ALTER COLUMN path DROP NOT NULL
+      `);
+      console.log('✓ Path column constraint removed');
+    } catch (err) {
+      console.log('ℹ Path column migration:', err.message);
+    }
+    
     // Create index on pad_id for faster lookups
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_pads_pad_id ON pads(pad_id)
