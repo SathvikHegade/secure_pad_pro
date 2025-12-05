@@ -300,8 +300,8 @@ function renderFiles(files) {
         </div>
       </div>
       <div class="file-actions">
-        ${canPreview(file.name) ? `<button class="btn btn-secondary btn-sm" onclick="previewFile('${file.id}', '${escapeHtml(file.name)}')">👁️ Preview</button>` : ''}
-        <button class="btn btn-primary btn-sm" onclick="downloadFile('${file.id}', '${escapeHtml(file.name)}')">⬇️ Download</button>
+        ${canPreview(file.name) ? `<button class="btn btn-secondary btn-sm" onclick="previewFile('${escapeHtml(file.filename)}', '${escapeHtml(file.name)}')">👁️ Preview</button>` : ''}
+        <button class="btn btn-primary btn-sm" onclick="downloadFile('${escapeHtml(file.filename)}', '${escapeHtml(file.name)}')">⬇️ Download</button>
       </div>
     </div>
   `).join('');
@@ -312,19 +312,12 @@ function canPreview(filename) {
   return ['pdf', 'jpg', 'jpeg', 'png'].includes(ext);
 }
 
-async function previewFile(fileId, filename) {
+async function previewFile(filename, originalName) {
   try {
-    const res = await fetch(`/files/${padId}/${fileId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: currentPassword })
-    });
+    const url = `/api/file/${padId}/${filename}`;
+    const ext = originalName.split('.').pop().toLowerCase();
     
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const ext = filename.split('.').pop().toLowerCase();
-    
-    els.previewTitle.textContent = filename;
+    els.previewTitle.textContent = originalName;
     
     if (ext === 'pdf') {
       els.previewBody.innerHTML = `<iframe src="${url}" style="width:100%;height:70vh;border:none"></iframe>`;
@@ -338,19 +331,12 @@ async function previewFile(fileId, filename) {
   }
 }
 
-async function downloadFile(fileId, filename) {
+async function downloadFile(filename, originalName) {
   try {
-    const res = await fetch(`/files/${padId}/${fileId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: currentPassword })
-    });
-    
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
+    const url = `/api/file/${padId}/${filename}`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = originalName;
     a.click();
   } catch (error) {
     alert('Download failed');
