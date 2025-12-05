@@ -255,9 +255,14 @@ app.post('/api/pad/:padId/save', async (req, res) => {
 // Upload file
 app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
   try {
+    console.log('[UPLOAD] Starting file upload...');
+    
     if (!req.file) {
+      console.error('[UPLOAD] No file provided');
       return res.status(400).json({ error: 'No file provided' });
     }
+    
+    console.log('[UPLOAD] File received:', req.file.originalname, req.file.size, 'bytes');
     
     const { padId } = req.params;
     const { password } = req.body;
@@ -265,19 +270,29 @@ app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
     // Verify pad and password
     const pad = await db.getPad(padId);
     if (!pad) {
+      console.error('[UPLOAD] Pad not found:', padId);
       return res.status(404).json({ error: 'Pad not found' });
     }
     
     const isValid = await verifyPassword(password, pad.password_hash);
     if (!isValid) {
+      console.error('[UPLOAD] Incorrect password');
       return res.status(401).json({ error: 'Incorrect password' });
     }
     
     // Validate MIME
     const fileBuffer = req.file.buffer;
     if (!validateMime(fileBuffer, req.file.originalname)) {
+      console.error('[UPLOAD] Invalid MIME type');
       return res.status(400).json({ error: 'Invalid or corrupted file' });
     }
+    
+    console.log('[UPLOAD] Validation passed, uploading to Cloudinary...');
+    console.log('[UPLOAD] Cloudinary config:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'SET' : 'MISSING',
+      api_key: process.env.CLOUDINARY_API_KEY ? 'SET' : 'MISSING',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'SET' : 'MISSING'
+    });
     
     // Generate unique filename
     const fileId = generateId();
@@ -294,14 +309,18 @@ app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
           format: ext.substring(1) // Remove the dot
         },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
+          if (error) {
+            console.error('[UPLOAD] Cloudinary error:', error);
+            reject(error);
+          } else {
+            resolve(result);
+          }
         }
       );
       uploadStream.end(fileBuffer);
     });
     
-    console.log('✓ Uploaded to Cloudinary:', uploadResult.secure_url);
+    console.log('[UPLOAD] ✓ Uploaded to Cloudinary:', uploadResult.secure_url);
     
     // Calculate expiration (24 hours from now)
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -330,8 +349,16 @@ app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ error: 'Upload failed' });
+    console.error('[UPLOAD] Upload error:', error);
+    console.error('[UPLOAD] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({ 
+      error: 'Upload failed',
+      details: error.message 
+    });
   }
 });
 
