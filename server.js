@@ -361,6 +361,40 @@ app.get('/api/file/:padId/:filename', async (req, res) => {
   }
 });
 
+// Test Gemini API connection
+app.get('/api/test-gemini', async (req, res) => {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      return res.json({ 
+        success: false, 
+        error: 'GEMINI_API_KEY not set in environment variables' 
+      });
+    }
+    
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const result = await model.generateContent('Say hello in one word.');
+    const response = await result.response;
+    const text = response.text();
+    
+    res.json({ 
+      success: true, 
+      message: 'Gemini API is working!',
+      model: GEMINI_MODEL,
+      response: text,
+      apiKeyConfigured: true
+    });
+  } catch (error) {
+    res.json({ 
+      success: false, 
+      error: error.message,
+      status: error.status,
+      statusText: error.statusText,
+      model: GEMINI_MODEL,
+      apiKeyConfigured: !!process.env.GEMINI_API_KEY
+    });
+  }
+});
+
 // AI Summarization
 app.post('/api/summarize', async (req, res) => {
   try {
@@ -401,15 +435,34 @@ app.post('/api/summarize', async (req, res) => {
     });
   } catch (error) {
     console.error('Summarization error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      status: error.status,
+      statusText: error.statusText,
+      stack: error.stack
+    });
     
+    // Provide detailed error messages
     if (error.message && error.message.includes('API key')) {
       return res.status(503).json({ 
         error: 'Invalid Gemini API key. Please check your .env configuration' 
       });
     }
     
+    if (error.message && error.message.includes('404')) {
+      return res.status(503).json({ 
+        error: `Model not found: ${GEMINI_MODEL}. The model may not be available for your API key.` 
+      });
+    }
+    
+    if (error.status === 403 || error.statusText === 'Forbidden') {
+      return res.status(503).json({ 
+        error: 'API key is invalid or does not have permission to access Gemini API' 
+      });
+    }
+    
     res.status(500).json({ 
-      error: 'Summarization failed. Please try again later.' 
+      error: `Summarization failed: ${error.message || 'Unknown error'}` 
     });
   }
 });
