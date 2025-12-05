@@ -461,6 +461,71 @@ app.get('/api/test-gemini', async (req, res) => {
   }
 });
 
+// Test Cloudinary configuration
+app.get('/api/test-cloudinary', async (req, res) => {
+  try {
+    const config = {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'NOT SET',
+      api_key: process.env.CLOUDINARY_API_KEY ? 'SET (hidden)' : 'NOT SET',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'SET (hidden)' : 'NOT SET'
+    };
+    
+    // Check if all are configured
+    const allConfigured = 
+      process.env.CLOUDINARY_CLOUD_NAME && 
+      process.env.CLOUDINARY_API_KEY && 
+      process.env.CLOUDINARY_API_SECRET;
+    
+    if (!allConfigured) {
+      return res.json({
+        success: false,
+        error: 'Cloudinary not fully configured',
+        config
+      });
+    }
+    
+    // Try a simple test upload
+    try {
+      const testBuffer = Buffer.from('test');
+      const result = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'securenote/test',
+            resource_type: 'raw'
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        uploadStream.end(testBuffer);
+      });
+      
+      // Delete the test file
+      await cloudinary.uploader.destroy(result.public_id, { resource_type: 'raw' });
+      
+      res.json({
+        success: true,
+        message: 'Cloudinary is working!',
+        config,
+        test_upload: 'SUCCESS'
+      });
+    } catch (uploadError) {
+      res.json({
+        success: false,
+        error: 'Cloudinary upload test failed',
+        details: uploadError.message,
+        config
+      });
+    }
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Debug endpoint - list files for a pad
 app.get('/api/debug/files/:padId', async (req, res) => {
   try {

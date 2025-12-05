@@ -275,9 +275,12 @@ async function uploadFile(file) {
     if (data.success) {
       await loadPad();
     } else {
-      alert(data.error || 'Upload failed');
+      const errorMsg = data.details ? `${data.error}: ${data.details}` : (data.error || 'Upload failed');
+      console.error('Upload error:', errorMsg);
+      alert(errorMsg);
     }
   } catch (error) {
+    console.error('Upload error:', error);
     alert('Upload failed: ' + error.message);
   }
 }
