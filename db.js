@@ -42,6 +42,19 @@ async function initDatabase() {
       )
     `);
     
+    // Add Cloudinary columns if they don't exist (migration for existing databases)
+    try {
+      await client.query(`
+        ALTER TABLE files 
+        ADD COLUMN IF NOT EXISTS cloudinary_url TEXT,
+        ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT
+      `);
+      console.log('✓ Cloudinary columns added/verified');
+    } catch (err) {
+      // Columns might already exist, ignore error
+      console.log('ℹ Cloudinary columns migration:', err.message);
+    }
+    
     // Create index on pad_id for faster lookups
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_pads_pad_id ON pads(pad_id)
