@@ -154,11 +154,19 @@ Create a `.env` file with:
 # Server Port (default: 3000)
 PORT=3000
 
+# PostgreSQL Database URL
+DATABASE_URL=postgresql://user:password@host:5432/database
+
 # Google Gemini API Key (required for AI summarization)
 GEMINI_API_KEY=your_api_key_here
 
-# Gemini Model (optional, default: gemini-1.5-flash)
-GEMINI_MODEL=gemini-1.5-flash
+# Gemini Model (optional, default: gemini-2.5-flash)
+GEMINI_MODEL=models/gemini-2.5-flash
+
+# Cloudinary (required for file uploads)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
 ## 🌐 Deployment
@@ -166,12 +174,18 @@ GEMINI_MODEL=gemini-1.5-flash
 ### Deploy to Render
 
 1. Create account at https://render.com
-2. Create new Web Service
-3. Connect your repository
-4. Set environment variables:
-   - `GEMINI_API_KEY`
-   - `PORT` (optional)
-5. Deploy!
+2. Create new **PostgreSQL Database** (free tier)
+3. Create new **Web Service**
+4. Connect your repository
+5. Set environment variables:
+   - `DATABASE_URL` (from PostgreSQL dashboard)
+   - `GEMINI_API_KEY` (from Google AI Studio)
+   - `CLOUDINARY_CLOUD_NAME` (from Cloudinary dashboard)
+   - `CLOUDINARY_API_KEY` (from Cloudinary dashboard)
+   - `CLOUDINARY_API_SECRET` (from Cloudinary dashboard)
+6. Deploy!
+
+**Important:** Get free Cloudinary account at https://cloudinary.com (25GB storage free)
 
 ### Deploy to Other Platforms
 

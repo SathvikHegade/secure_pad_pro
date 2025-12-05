@@ -31,7 +31,9 @@ async function initDatabase() {
         pad_id VARCHAR(255) NOT NULL,
         filename VARCHAR(255) NOT NULL,
         original_name VARCHAR(255) NOT NULL,
-        path TEXT NOT NULL,
+        cloudinary_url TEXT,
+        cloudinary_public_id TEXT,
+        path TEXT,
         size INTEGER NOT NULL,
         mime_type VARCHAR(100),
         uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -100,11 +102,11 @@ const db = {
   },
   
   // Add file
-  async addFile(padId, filename, originalName, filepath, size, mimeType, expiresAt) {
+  async addFile(padId, filename, originalName, cloudinaryUrl, cloudinaryPublicId, size, mimeType, expiresAt) {
     const result = await pool.query(
-      `INSERT INTO files (pad_id, filename, original_name, path, size, mime_type, expires_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [padId, filename, originalName, filepath, size, mimeType, expiresAt]
+      `INSERT INTO files (pad_id, filename, original_name, cloudinary_url, cloudinary_public_id, size, mime_type, expires_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [padId, filename, originalName, cloudinaryUrl, cloudinaryPublicId, size, mimeType, expiresAt]
     );
     return result.rows[0];
   },

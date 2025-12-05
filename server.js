@@ -8,6 +8,14 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { initDatabase, db } = require('./db');
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -271,25 +279,40 @@ app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid or corrupted file' });
     }
     
-    // Save file
+    // Generate unique filename
     const fileId = generateId();
     const ext = path.extname(req.file.originalname);
     const filename = `${fileId}${ext}`;
-    const padDir = path.join(UPLOADS_DIR, padId);
-    await fs.mkdir(padDir, { recursive: true });
     
-    const filepath = path.join(padDir, filename);
-    await fs.writeFile(filepath, fileBuffer);
+    // Upload to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: `securenote/${padId}`,
+          public_id: fileId,
+          resource_type: 'auto',
+          format: ext.substring(1) // Remove the dot
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(fileBuffer);
+    });
+    
+    console.log('✓ Uploaded to Cloudinary:', uploadResult.secure_url);
     
     // Calculate expiration (24 hours from now)
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     
-    // Save to database
+    // Save to database with Cloudinary URL
     const fileData = await db.addFile(
       padId,
       filename,
       req.file.originalname,
-      filepath,
+      uploadResult.secure_url,
+      uploadResult.public_id,
       req.file.size,
       req.file.mimetype,
       expiresAt
@@ -363,21 +386,14 @@ app.get('/api/file/:padId/:filename', async (req, res) => {
       return res.status(404).json({ error: 'File not found in database' });
     }
     
-    console.log(`[FILE INFO] Database path: ${fileRecord.path}`);
+    console.log(`[FILE INFO] Cloudinary URL: ${fileRecord.cloudinary_url}`);
     
-    // Use the path from database (absolute path)
-    const filepath = fileRecord.path;
-    
-    // Check if file exists on disk
-    try {
-      await fs.access(filepath);
-    } catch (err) {
-      console.error(`[FILE ERROR] File not found on disk: ${filepath}`, err);
-      return res.status(404).json({ error: 'File not found on disk' });
+    // Redirect to Cloudinary URL
+    if (fileRecord.cloudinary_url) {
+      return res.redirect(fileRecord.cloudinary_url);
+    } else {
+      return res.status(404).json({ error: 'File URL not available' });
     }
-    
-    console.log(`[FILE SUCCESS] Sending file: ${filepath}`);
-    res.sendFile(filepath);
   } catch (error) {
     console.error('[FILE ERROR]', error);
     res.status(500).json({ error: 'Failed to retrieve file' });
@@ -535,12 +551,15 @@ async function cleanupExpiredFiles() {
     console.log('Running cleanup...');
     const expiredFiles = await db.deleteExpiredFiles();
     
-    // Delete physical files
+    // Delete from Cloudinary
     for (const file of expiredFiles) {
       try {
-        await fs.unlink(file.path);
+        if (file.cloudinary_public_id) {
+          await cloudinary.uploader.destroy(file.cloudinary_public_id, { resource_type: 'raw' });
+          console.log(`✓ Deleted from Cloudinary: ${file.cloudinary_public_id}`);
+        }
       } catch (err) {
-        console.error(`Failed to delete file: ${file.path}`, err);
+        console.error(`Failed to delete from Cloudinary: ${file.cloudinary_public_id}`, err);
       }
     }
     
