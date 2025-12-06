@@ -384,7 +384,10 @@ async function deleteFile(fileId, fileName) {
     const res = await fetch(`/api/file/${fileId}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: currentPassword })
+      body: JSON.stringify({ 
+        padId: padId,
+        password: currentPassword 
+      })
     });
     
     const data = await res.json();
