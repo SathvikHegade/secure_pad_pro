@@ -536,8 +536,10 @@ app.get('/api/debug/files/:padId', async (req, res) => {
     const fileStatus = await Promise.all(files.map(async (f) => {
       let exists = false;
       try {
-        await fs.access(f.path);
-        exists = true;
+        if (f.path) {
+          await fs.access(f.path);
+          exists = true;
+        }
       } catch (err) {
         exists = false;
       }
@@ -546,6 +548,8 @@ app.get('/api/debug/files/:padId', async (req, res) => {
         id: f.id,
         filename: f.filename,
         original_name: f.original_name,
+        cloudinary_url: f.cloudinary_url || null,
+        cloudinary_public_id: f.cloudinary_public_id || null,
         path: f.path,
         size: f.size,
         exists_on_disk: exists,
