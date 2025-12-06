@@ -305,6 +305,7 @@ function renderFiles(files) {
       <div class="file-actions">
         ${canPreview(file.name) ? `<button class="btn btn-secondary btn-sm" onclick="previewFile('${escapeHtml(file.filename)}', '${escapeHtml(file.name)}')">👁️ Preview</button>` : ''}
         <button class="btn btn-primary btn-sm" onclick="downloadFile('${escapeHtml(file.filename)}', '${escapeHtml(file.name)}')">⬇️ Download</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteFile(${file.id}, '${escapeHtml(file.name)}')">🗑️ Delete</button>
       </div>
     </div>
   `).join('');
@@ -371,6 +372,30 @@ async function downloadFile(filename, originalName) {
   } catch (error) {
     console.error('Download error:', error);
     alert('Download failed: ' + (error.message || 'Unknown error'));
+  }
+}
+
+async function deleteFile(fileId, fileName) {
+  if (!confirm(`Delete "${fileName}"?`)) {
+    return;
+  }
+  
+  try {
+    const res = await fetch(`/api/file/${fileId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: currentPassword })
+    });
+    
+    const data = await res.json();
+    if (data.success) {
+      await loadPad(); // Reload to update file list
+    } else {
+      alert(data.error || 'Delete failed');
+    }
+  } catch (error) {
+    console.error('Delete error:', error);
+    alert('Delete failed: ' + error.message);
   }
 }
 
