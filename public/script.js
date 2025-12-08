@@ -316,10 +316,21 @@ function canPreview(filename) {
   return ['pdf', 'jpg', 'jpeg', 'png'].includes(ext);
 }
 
+function isMobile() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+    || window.innerWidth < 768;
+}
+
 async function previewFile(filename, originalName) {
   try {
     const url = `/api/file/${padId}/${filename}`;
     const ext = originalName.split('.').pop().toLowerCase();
+
+    // For PDFs on mobile, open directly in new tab (mobile browsers handle PDFs better natively)
+    if (ext === 'pdf' && isMobile()) {
+      window.open(url, '_blank');
+      return;
+    }
 
     // Try to fetch the file first to catch errors and to avoid browser
     // content-disposition issues when embedding directly.
@@ -327,25 +338,8 @@ async function previewFile(filename, originalName) {
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       // Fallback: open in new tab for mobile or restricted contexts
-      try {
-        const win = window.open(url, '_blank');
-        if (!win) {
-          // If popup blocked, offer a manual link
-          const proceed = confirm('Preview is blocked (status ' + res.status + '). Open in a new tab?');
-          if (proceed) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.target = '_blank';
-            a.rel = 'noopener';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-          }
-        }
-      } catch (e) {
-        // Ignore window.open errors, continue to show alert below
-      }
-      throw new Error(`Failed to fetch file: ${res.status} ${res.statusText} ${text}`);
+      window.open(url, '_blank');
+      return;
     }
 
     const blob = await res.blob();
@@ -354,7 +348,12 @@ async function previewFile(filename, originalName) {
     els.previewTitle.textContent = originalName;
 
     if (ext === 'pdf') {
-      els.previewBody.innerHTML = `<iframe src="${blobUrl}" style="width:100%;height:70vh;border:none"></iframe>`;
+      // Desktop: try iframe, with fallback link
+      els.previewBody.innerHTML = `
+        <iframe src="${blobUrl}" style="width:100%;height:70vh;border:none"></iframe>
+        <p style="text-align:center;margin-top:1rem;font-size:0.875rem;color:var(--text-light)">
+          PDF not loading? <a href="${url}" target="_blank" style="color:var(--primary)">Open in new tab</a>
+        </p>`;
     } else {
       els.previewBody.innerHTML = `<img src="${blobUrl}" style="max-width:100%;height:auto;display:block;margin:0 auto">`;
     }
@@ -369,7 +368,9 @@ async function previewFile(filename, originalName) {
     els.closePreview.addEventListener('click', cleanup);
   } catch (error) {
     console.error('Preview error:', error);
-    alert('Preview failed: ' + (error.message || 'Unknown error'));
+    // Last resort: try opening in new tab
+    const url = `/api/file/${padId}/${filename}`;
+    window.open(url, '_blank');
   }
 }
 
