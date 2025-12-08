@@ -299,16 +299,20 @@ app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
     const ext = path.extname(req.file.originalname);
     const filename = `${fileId}${ext}`;
     
+    // Determine Cloudinary resource type
+    const isPdf = ext.toLowerCase() === '.pdf';
+    const isDocx = ext.toLowerCase() === '.docx';
+    const resourceType = (isPdf || isDocx) ? 'raw' : 'auto';
+    
     // Upload to Cloudinary
     const uploadResult = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: `securenote/${padId}`,
-          public_id: fileId,
-          resource_type: 'auto',
+          public_id: `${fileId}${ext}`,
+          resource_type: resourceType,
           type: 'upload',
-          access_mode: 'public',
-          format: ext.substring(1) // Remove the dot
+          access_mode: 'public'
         },
         (error, result) => {
           if (error) {
