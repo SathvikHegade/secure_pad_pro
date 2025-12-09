@@ -158,6 +158,25 @@
           >
         </div>
 
+        <div class="form-group">
+          <label for="alertEmail">
+            <span class="label-text">Security Alert Email (Optional)</span>
+            <span class="label-hint">🔔 Get notified of access attempts, failed logins, and file activity</span>
+          </label>
+          <input 
+            type="email" 
+            id="alertEmail" 
+            name="alertEmail"
+            placeholder="your.email@example.com"
+            autocomplete="email"
+          >
+          <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.5rem;">
+            ✓ Receive alerts when someone accesses your note<br>
+            ✓ Track failed password attempts and brute force<br>
+            ✓ Monitor file uploads and downloads
+          </div>
+        </div>
+
         <div id="createError" class="error-message hidden"></div>
 
         <button type="submit" class="btn btn-primary btn-large" id="createSubmit">

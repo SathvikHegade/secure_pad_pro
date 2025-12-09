@@ -8,6 +8,7 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { initDatabase, db } = require('./db');
+const { initEmailService, sendSecurityAlert } = require('./alertService');
 const cloudinary = require('cloudinary').v2;
 
 // Configure Cloudinary
@@ -29,6 +30,9 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('public'));
+
+// Brute force protection tracking
+const failedAttempts = new Map(); // IP -> { count, lastAttempt }
 
 // Storage paths
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
@@ -133,7 +137,7 @@ app.get('/api/check-url/:urlName', async (req, res) => {
 // Create new pad with custom URL
 app.post('/api/create-pad', async (req, res) => {
   try {
-    const { urlName, password } = req.body;
+    const { urlName, password, alertEmail } = req.body;
     
     // Validate URL name
     if (!urlName || !isValidCustomUrl(urlName)) {
@@ -147,14 +151,22 @@ app.post('/api/create-pad', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 4 characters' });
     }
     
+    // Validate alert email if provided
+    if (alertEmail && alertEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(alertEmail)) {
+        return res.status(400).json({ error: 'Invalid email address' });
+      }
+    }
+    
     // Check if URL already exists
     if (await db.padExists(urlName)) {
       return res.status(409).json({ error: 'This URL name is already taken.' });
     }
     
-    // Create pad with hashed password
+    // Create pad with hashed password and alert email
     const passwordHash = await hashPassword(password);
-    await db.createPad(urlName, passwordHash);
+    await db.createPad(urlName, passwordHash, alertEmail && alertEmail.trim() ? alertEmail.trim() : null);
     
     res.json({ success: true, padId: urlName });
   } catch (error) {
@@ -196,6 +208,8 @@ app.post('/api/pad/:padId/get', async (req, res) => {
   try {
     const { padId } = req.params;
     const { password } = req.body;
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent');
     
     const pad = await db.getPad(padId);
     if (!pad) {
@@ -205,6 +219,33 @@ app.post('/api/pad/:padId/get', async (req, res) => {
     // Verify password
     const isValid = await verifyPassword(password, pad.password_hash);
     if (!isValid) {
+      // Log failed attempt
+      await db.logSecurityEvent(padId, 'login_failed', ip, userAgent, false);
+      
+      // Check for brute force
+      const recentFailed = await db.getRecentFailedAttempts(padId, 15);
+      const ipAttempts = recentFailed.find(r => r.ip_address === ip);
+      
+      if (ipAttempts && parseInt(ipAttempts.count) >= 5) {
+        // Brute force detected
+        await db.logSecurityEvent(padId, 'brute_force', ip, userAgent, false, `${ipAttempts.count} failed attempts`);
+        
+        // Send alert if email configured
+        if (pad.alert_email) {
+          await sendSecurityAlert(pad.alert_email, padId, 'brute_force', {
+            ip,
+            userAgent,
+            attemptCount: ipAttempts.count
+          });
+        }
+      } else if (pad.alert_email) {
+        // Send failed login alert
+        await sendSecurityAlert(pad.alert_email, padId, 'login_failed', {
+          ip,
+          userAgent
+        });
+      }
+      
       return res.status(401).json({ error: 'Incorrect password' });
     }
     
@@ -218,6 +259,17 @@ app.post('/api/pad/:padId/get', async (req, res) => {
       type: f.mime_type,
       uploadedAt: f.uploaded_at
     }));
+    
+    // Log successful access
+    await db.logSecurityEvent(padId, 'note_accessed', ip, userAgent, true);
+    
+    // Send access alert if enabled
+    if (pad.alert_email) {
+      await sendSecurityAlert(pad.alert_email, padId, 'note_accessed', {
+        ip,
+        userAgent
+      });
+    }
     
     res.json({ content: pad.content || '', files });
   } catch (error) {
@@ -343,6 +395,21 @@ app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
       expiresAt
     );
     
+    // Log file upload event
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent');
+    await db.logSecurityEvent(padId, 'file_uploaded', ip, userAgent, true, req.file.originalname);
+    
+    // Send alert if enabled
+    const padInfo = await db.getPad(padId);
+    if (padInfo && padInfo.alert_email) {
+      await sendSecurityAlert(padInfo.alert_email, padId, 'file_uploaded', {
+        ip,
+        userAgent,
+        fileName: req.file.originalname
+      });
+    }
+    
     res.json({
       success: true,
       file: {
@@ -389,11 +456,30 @@ app.delete('/api/file/:fileId', async (req, res) => {
     const file = await db.deleteFile(fileId);
     
     if (file) {
-      // Delete physical file
-      try {
-        await fs.unlink(file.path);
-      } catch (err) {
-        console.error('File deletion error:', err);
+      // Delete from Cloudinary if exists
+      if (file.cloudinary_public_id) {
+        try {
+          await cloudinary.uploader.destroy(file.cloudinary_public_id, {
+            resource_type: file.filename.toLowerCase().endsWith('.pdf') || file.filename.toLowerCase().endsWith('.docx') ? 'raw' : 'image'
+          });
+          console.log(`✓ Deleted from Cloudinary: ${file.cloudinary_public_id}`);
+        } catch (err) {
+          console.error('Cloudinary deletion error:', err);
+        }
+      }
+      
+      // Log file deletion event
+      const ip = req.ip || req.connection.remoteAddress;
+      const userAgent = req.get('user-agent');
+      await db.logSecurityEvent(padId, 'file_deleted', ip, userAgent, true, file.original_name);
+      
+      // Send alert if enabled
+      if (pad.alert_email) {
+        await sendSecurityAlert(pad.alert_email, padId, 'file_deleted', {
+          ip,
+          userAgent,
+          fileName: file.original_name
+        });
       }
     }
     
@@ -425,6 +511,21 @@ app.get('/api/file/:padId/:filename', async (req, res) => {
     
     console.log(`[FILE INFO] Public ID: ${fileRecord.cloudinary_public_id}`);
     console.log(`[FILE INFO] Stored URL: ${fileRecord.cloudinary_url}`);
+    
+    // Log file download event
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent');
+    await db.logSecurityEvent(padId, 'file_downloaded', ip, userAgent, true, fileRecord.original_name);
+    
+    // Send alert if enabled
+    const padInfo = await db.getPad(padId);
+    if (padInfo && padInfo.alert_email) {
+      await sendSecurityAlert(padInfo.alert_email, padId, 'file_downloaded', {
+        ip,
+        userAgent,
+        fileName: fileRecord.original_name
+      });
+    }
     
     // Determine resource type
     const isPdf = fileRecord.filename.toLowerCase().endsWith('.pdf');
@@ -717,6 +818,9 @@ async function startServer() {
     // Initialize database
     await initDatabase();
     
+    // Initialize email alert service
+    initEmailService();
+    
     // Initialize file storage
     await initDirs();
     
@@ -731,9 +835,10 @@ async function startServer() {
 ╠════════════════════════════════════════╣
 ║  Port: ${PORT.toString().padEnd(31)}║
 ║  Mode: Production                      ║
-║  Storage: PostgreSQL + Disk            ║
+║  Storage: PostgreSQL + Cloudinary      ║
 ║  AI: Google Gemini (${GEMINI_MODEL.padEnd(16)}) ║
 ║  Password: bcrypt (${SALT_ROUNDS} rounds)${' '.repeat(13)}║
+║  Alerts: Email (${process.env.SMTP_HOST ? 'Enabled' : 'Disabled'})${' '.repeat(17)}║
 ╚════════════════════════════════════════╝
 `);
       

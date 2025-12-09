@@ -19,9 +19,41 @@ async function initDatabase() {
         pad_id VARCHAR(255) UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         content TEXT DEFAULT '',
+        alert_email VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+    
+    // Add alert_email column if it doesn't exist (migration)
+    try {
+      await client.query(`
+        ALTER TABLE pads 
+        ADD COLUMN IF NOT EXISTS alert_email VARCHAR(255)
+      `);
+    } catch (err) {
+      // Column might already exist
+    }
+    
+    // Create security_logs table for tracking access attempts
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS security_logs (
+        id SERIAL PRIMARY KEY,
+        pad_id VARCHAR(255) NOT NULL,
+        event_type VARCHAR(50) NOT NULL,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        success BOOLEAN,
+        details TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (pad_id) REFERENCES pads(pad_id) ON DELETE CASCADE
+      )
+    `);
+    
+    // Create index for faster queries
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_security_logs_pad_id ON security_logs(pad_id);
+      CREATE INDEX IF NOT EXISTS idx_security_logs_created_at ON security_logs(created_at);
     `);
     
     // Create files table
@@ -93,10 +125,10 @@ const db = {
   },
   
   // Create new pad
-  async createPad(padId, passwordHash) {
+  async createPad(padId, passwordHash, alertEmail = null) {
     const result = await pool.query(
-      'INSERT INTO pads (pad_id, password_hash, content) VALUES ($1, $2, $3) RETURNING *',
-      [padId, passwordHash, '']
+      'INSERT INTO pads (pad_id, password_hash, content, alert_email) VALUES ($1, $2, $3, $4) RETURNING *',
+      [padId, passwordHash, '', alertEmail]
     );
     return result.rows[0];
   },
@@ -153,6 +185,40 @@ const db = {
   async deleteExpiredFiles() {
     const result = await pool.query(
       'DELETE FROM files WHERE expires_at < CURRENT_TIMESTAMP RETURNING *'
+    );
+    return result.rows;
+  },
+  
+  // Log security event
+  async logSecurityEvent(padId, eventType, ipAddress, userAgent, success, details = null) {
+    const result = await pool.query(
+      `INSERT INTO security_logs (pad_id, event_type, ip_address, user_agent, success, details) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [padId, eventType, ipAddress, userAgent, success, details]
+    );
+    return result.rows[0];
+  },
+  
+  // Get recent failed attempts for brute force detection
+  async getRecentFailedAttempts(padId, minutes = 15) {
+    const result = await pool.query(
+      `SELECT COUNT(*) as count, ip_address 
+       FROM security_logs 
+       WHERE pad_id = $1 
+       AND event_type = 'login_failed' 
+       AND success = false 
+       AND created_at > NOW() - INTERVAL '${minutes} minutes'
+       GROUP BY ip_address`,
+      [padId]
+    );
+    return result.rows;
+  },
+  
+  // Get security logs for a pad
+  async getSecurityLogs(padId, limit = 50) {
+    const result = await pool.query(
+      'SELECT * FROM security_logs WHERE pad_id = $1 ORDER BY created_at DESC LIMIT $2',
+      [padId, limit]
     );
     return result.rows;
   }

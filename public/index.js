@@ -21,6 +21,7 @@ const els = {
   createUrlName: document.getElementById('createUrlName'),
   createPassword: document.getElementById('createPassword'),
   confirmPassword: document.getElementById('confirmPassword'),
+  alertEmail: document.getElementById('alertEmail'),
   createError: document.getElementById('createError'),
   createSubmit: document.getElementById('createSubmit'),
   urlAvailability: document.getElementById('urlAvailability'),
@@ -198,7 +199,8 @@ async function handleCreate(e) {
   
   const urlName = els.createUrlName.value.trim();
   const password = els.createPassword.value;
-  const confirm = els.confirmPassword.value;
+  const confirmPass = els.confirmPassword.value;
+  const alertEmail = els.alertEmail.value.trim();
   
   // Validation
   if (!urlName || urlName.length < 3 || urlName.length > 50) {
@@ -217,9 +219,18 @@ async function handleCreate(e) {
     return;
   }
   
-  if (password !== confirm) {
+  if (password !== confirmPass) {
     showError(els.createError, 'Passwords do not match');
     return;
+  }
+  
+  // Validate email if provided
+  if (alertEmail) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(alertEmail)) {
+      showError(els.createError, 'Please enter a valid email address');
+      return;
+    }
   }
   
   // Disable submit button
@@ -230,7 +241,7 @@ async function handleCreate(e) {
     const res = await fetch('/api/create-pad', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ urlName, password })
+      body: JSON.stringify({ urlName, password, alertEmail: alertEmail || null })
     });
     
     const data = await res.json();
