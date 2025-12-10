@@ -63,7 +63,31 @@ async function init() {
     }
   }
   
-  // Show password screen if no stored credentials
+  // Try to load as public note first
+  try {
+    const res = await fetch(`/api/pad/${padId}/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: '' })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data.isPublic) {
+        // Public note - load directly
+        currentPassword = ''; // No password needed
+        els.editor.value = data.content || '';
+        renderFiles(data.files || []);
+        showMainScreen();
+        setupEventListeners();
+        return;
+      }
+    }
+  } catch (e) {
+    // Not public, continue to password screen
+  }
+  
+  // Show password screen for private notes
   setupAuthScreen();
   setupEventListeners();
   
@@ -71,7 +95,7 @@ async function init() {
 }
 
 function setupAuthScreen() {
-  els.authTitle.textContent = '🔐 Enter Password';
+  els.authTitle.textContent = 'Enter Password';
   els.authSubtitle.textContent = 'This note is password protected';
 }
 
@@ -303,9 +327,9 @@ function renderFiles(files) {
         </div>
       </div>
       <div class="file-actions">
-        ${canPreview(file.name) ? `<button class="btn btn-secondary btn-sm" onclick="previewFile('${escapeHtml(file.filename)}', '${escapeHtml(file.name)}')">👁️ Preview</button>` : ''}
+        ${canPreview(file.name) ? `<button class="btn btn-secondary btn-sm" onclick="previewFile('${escapeHtml(file.filename)}', '${escapeHtml(file.name)}')">Preview</button>` : ''}
         <button class="btn btn-primary btn-sm" onclick="downloadFile('${escapeHtml(file.filename)}', '${escapeHtml(file.name)}')">⬇️ Download</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteFile(${file.id}, '${escapeHtml(file.name)}')">🗑️ Delete</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteFile(${file.id}, '${escapeHtml(file.name)}')">Delete</button>
       </div>
     </div>
   `).join('');
@@ -503,7 +527,7 @@ function displaySummary(summary, originalText) {
     </div>
     
     <div class="summary-section">
-      <h3>📊 Document Statistics</h3>
+      <h3>Document Statistics</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1rem;">
         <div style="background:var(--bg);padding:1rem;border-radius:0.5rem;text-align:center;">
           <div style="font-size:1.5rem;font-weight:700;color:var(--primary);">${wordCount}</div>
@@ -522,7 +546,7 @@ function displaySummary(summary, originalText) {
     
     <div class="summary-section">
       <p style="text-align:center;color:var(--text-light);font-size:0.875rem;">
-        ✨ Powered by Google Gemini AI
+        Powered by Google Gemini AI
       </p>
     </div>
   `;
@@ -573,7 +597,9 @@ function setupDarkMode() {
   themeToggle.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
     const isDark = document.body.classList.contains('dark-mode');
-    themeToggle.textContent = isDark ? '☀️' : '🌙';
+    themeToggle.innerHTML = isDark 
+      ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>'
+      : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
   });
 }

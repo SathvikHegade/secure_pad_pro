@@ -17,22 +17,32 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS pads (
         id SERIAL PRIMARY KEY,
         pad_id VARCHAR(255) UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
+        password_hash TEXT,
         content TEXT DEFAULT '',
-        alert_email VARCHAR(255),
+        is_public BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     
-    // Add alert_email column if it doesn't exist (migration)
+    // Add is_public column if it doesn't exist (migration)
     try {
       await client.query(`
         ALTER TABLE pads 
-        ADD COLUMN IF NOT EXISTS alert_email VARCHAR(255)
+        ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT false
       `);
     } catch (err) {
       // Column might already exist
+    }
+    
+    // Remove alert_email column if exists (migration)
+    try {
+      await client.query(`
+        ALTER TABLE pads 
+        DROP COLUMN IF EXISTS alert_email
+      `);
+    } catch (err) {
+      // Column might not exist
     }
     
     // Create security_logs table for tracking access attempts
@@ -125,10 +135,10 @@ const db = {
   },
   
   // Create new pad
-  async createPad(padId, passwordHash, alertEmail = null) {
+  async createPad(padId, passwordHash, isPublic = false) {
     const result = await pool.query(
-      'INSERT INTO pads (pad_id, password_hash, content, alert_email) VALUES ($1, $2, $3, $4) RETURNING *',
-      [padId, passwordHash, '', alertEmail]
+      'INSERT INTO pads (pad_id, password_hash, content, is_public) VALUES ($1, $2, $3, $4) RETURNING *',
+      [padId, passwordHash, '', isPublic]
     );
     return result.rows[0];
   },

@@ -17,10 +17,20 @@
   <!-- Header -->
   <header class="app-header">
     <div class="header-content">
-      <h1>🔒 SecureNote</h1>
+      <h1>SecureNote</h1>
       <div class="header-actions">
-        <button class="icon-btn" id="themeToggle" title="Toggle Dark Mode" aria-label="Toggle theme">🌙</button>
-        <button class="icon-btn" id="infoBtn" title="About" aria-label="About">ℹ️</button>
+        <button class="icon-btn" id="themeToggle" title="Toggle Dark Mode" aria-label="Toggle theme">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <button class="icon-btn" id="infoBtn" title="About" aria-label="About">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+        </button>
       </div>
     </div>
   </header>
@@ -28,17 +38,17 @@
   <!-- Main Content -->
   <main class="home-container">
     <div class="home-hero">
-      <h2>🌟 Create Your Secure Notepad</h2>
+      <h2>Create Your Secure Notepad</h2>
       <p class="hero-subtitle">Password-protected notes with custom URLs and AI-powered summarization</p>
     </div>
 
     <!-- Tab Navigation -->
     <div class="tab-container">
       <button class="tab-btn active" data-tab="login">
-        🔓 Access Existing Note
+        Access Existing Note
       </button>
       <button class="tab-btn" data-tab="create">
-        ✨ Create New Note
+        Create New Note
       </button>
     </div>
 
@@ -90,8 +100,7 @@
         <div id="loginError" class="error-message hidden"></div>
 
         <button type="submit" class="btn btn-primary btn-large" id="loginSubmit">
-          <span class="btn-icon">🚀</span>
-          <span>Access My Note</span>
+          Access My Note
         </button>
       </form>
     </div>
@@ -159,29 +168,30 @@
         </div>
 
         <div class="form-group">
-          <label for="alertEmail">
-            <span class="label-text">Security Alert Email (Optional)</span>
-            <span class="label-hint">🔔 Get notified of access attempts, failed logins, and file activity</span>
+          <label>
+            <span class="label-text">Note Privacy</span>
+            <span class="label-hint">Choose who can access this note</span>
           </label>
-          <input 
-            type="email" 
-            id="alertEmail" 
-            name="alertEmail"
-            placeholder="your.email@example.com"
-            autocomplete="email"
-          >
+          <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="radio" name="notePrivacy" value="private" checked style="cursor: pointer;">
+              <span>Private (Password Required)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="radio" name="notePrivacy" value="public" style="cursor: pointer;">
+              <span>Public (URL Only)</span>
+            </label>
+          </div>
           <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.5rem;">
-            ✓ Receive alerts when someone accesses your note<br>
-            ✓ Track failed password attempts and brute force<br>
-            ✓ Monitor file uploads and downloads
+            Private: Password required to access<br>
+            Public: Anyone with the URL can view and edit
           </div>
         </div>
 
         <div id="createError" class="error-message hidden"></div>
 
         <button type="submit" class="btn btn-primary btn-large" id="createSubmit">
-          <span class="btn-icon">✨</span>
-          <span>Create My Note</span>
+          Create My Note
         </button>
       </form>
     </div>
@@ -189,32 +199,32 @@
     <!-- Features Section -->
     <div class="features-grid">
       <div class="feature-card">
-        <div class="feature-icon">🔐</div>
+        <div class="feature-icon">Security</div>
         <h4>Secure & Private</h4>
         <p>bcrypt password hashing ensures your notes stay protected</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🎯</div>
+        <div class="feature-icon">URLs</div>
         <h4>Custom URLs</h4>
         <p>Create memorable, personalized URLs for your notepads</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">💾</div>
+        <div class="feature-icon">Auto-Save</div>
         <h4>Auto-Save</h4>
         <p>Your changes are automatically saved every few seconds</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🤖</div>
+        <div class="feature-icon">AI</div>
         <h4>AI Summaries</h4>
         <p>Google Gemini AI generates concise summaries of your notes</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">📎</div>
+        <div class="feature-icon">Files</div>
         <h4>File Uploads</h4>
         <p>Attach PDFs, images, and documents to your notes</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🌙</div>
+        <div class="feature-icon">Theme</div>
         <h4>Dark Mode</h4>
         <p>Easy on the eyes with automatic dark mode support</p>
       </div>
@@ -225,7 +235,7 @@
   <div id="infoModal" class="modal hidden">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>ℹ️ About SecureNote</h3>
+        <h3>About SecureNote</h3>
         <button class="modal-close" id="closeInfo" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">

@@ -8,7 +8,6 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { initDatabase, db } = require('./db');
-const { initEmailService, sendSecurityAlert } = require('./alertService');
 const cloudinary = require('cloudinary').v2;
 
 // Configure Cloudinary
@@ -137,7 +136,7 @@ app.get('/api/check-url/:urlName', async (req, res) => {
 // Create new pad with custom URL
 app.post('/api/create-pad', async (req, res) => {
   try {
-    const { urlName, password, alertEmail } = req.body;
+    const { urlName, password, isPublic } = req.body;
     
     // Validate URL name
     if (!urlName || !isValidCustomUrl(urlName)) {
@@ -151,22 +150,14 @@ app.post('/api/create-pad', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 4 characters' });
     }
     
-    // Validate alert email if provided
-    if (alertEmail && alertEmail.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(alertEmail)) {
-        return res.status(400).json({ error: 'Invalid email address' });
-      }
-    }
-    
     // Check if URL already exists
     if (await db.padExists(urlName)) {
       return res.status(409).json({ error: 'This URL name is already taken.' });
     }
     
-    // Create pad with hashed password and alert email
+    // Create pad with hashed password and privacy setting
     const passwordHash = await hashPassword(password);
-    await db.createPad(urlName, passwordHash, alertEmail && alertEmail.trim() ? alertEmail.trim() : null);
+    await db.createPad(urlName, passwordHash, isPublic === true);
     
     res.json({ success: true, padId: urlName });
   } catch (error) {
@@ -216,7 +207,27 @@ app.post('/api/pad/:padId/get', async (req, res) => {
       return res.status(404).json({ error: 'Pad not found' });
     }
     
-    // Verify password
+    // Check if note is public - skip password verification
+    if (pad.is_public) {
+      // Public note - no password required
+      const filesData = await db.getFiles(padId);
+      const files = filesData.map(f => ({
+        id: f.id,
+        name: f.original_name,
+        filename: f.filename,
+        size: f.size,
+        type: f.mime_type,
+        uploadedAt: f.uploaded_at,
+        expiresAt: f.expires_at
+      }));
+      
+      // Log access
+      await db.logSecurityEvent(padId, 'note_accessed', ip, userAgent, true, 'public');
+      
+      return res.json({ content: pad.content || '', files, isPublic: true });
+    }
+    
+    // Private note - verify password
     const isValid = await verifyPassword(password, pad.password_hash);
     if (!isValid) {
       // Log failed attempt
@@ -229,21 +240,6 @@ app.post('/api/pad/:padId/get', async (req, res) => {
       if (ipAttempts && parseInt(ipAttempts.count) >= 5) {
         // Brute force detected
         await db.logSecurityEvent(padId, 'brute_force', ip, userAgent, false, `${ipAttempts.count} failed attempts`);
-        
-        // Send alert if email configured
-        if (pad.alert_email) {
-          await sendSecurityAlert(pad.alert_email, padId, 'brute_force', {
-            ip,
-            userAgent,
-            attemptCount: ipAttempts.count
-          });
-        }
-      } else if (pad.alert_email) {
-        // Send failed login alert
-        await sendSecurityAlert(pad.alert_email, padId, 'login_failed', {
-          ip,
-          userAgent
-        });
       }
       
       return res.status(401).json({ error: 'Incorrect password' });
@@ -257,21 +253,14 @@ app.post('/api/pad/:padId/get', async (req, res) => {
       filename: f.filename,
       size: f.size,
       type: f.mime_type,
-      uploadedAt: f.uploaded_at
+      uploadedAt: f.uploaded_at,
+      expiresAt: f.expires_at
     }));
     
     // Log successful access
-    await db.logSecurityEvent(padId, 'note_accessed', ip, userAgent, true);
+    await db.logSecurityEvent(padId, 'note_accessed', ip, userAgent, true, 'private');
     
-    // Send access alert if enabled
-    if (pad.alert_email) {
-      await sendSecurityAlert(pad.alert_email, padId, 'note_accessed', {
-        ip,
-        userAgent
-      });
-    }
-    
-    res.json({ content: pad.content || '', files });
+    res.json({ content: pad.content || '', files, isPublic: false });
   } catch (error) {
     console.error('Get pad error:', error);
     res.status(500).json({ error: 'Failed to load pad' });
@@ -289,10 +278,13 @@ app.post('/api/pad/:padId/save', async (req, res) => {
       return res.status(404).json({ error: 'Pad not found' });
     }
     
-    // Verify password
-    const isValid = await verifyPassword(password, pad.password_hash);
-    if (!isValid) {
-      return res.status(401).json({ error: 'Incorrect password' });
+    // For public notes, skip password verification
+    if (!pad.is_public) {
+      // Verify password for private notes
+      const isValid = await verifyPassword(password, pad.password_hash);
+      if (!isValid) {
+        return res.status(401).json({ error: 'Incorrect password' });
+      }
     }
     
     // Update content
@@ -400,16 +392,6 @@ app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
     const userAgent = req.get('user-agent');
     await db.logSecurityEvent(padId, 'file_uploaded', ip, userAgent, true, req.file.originalname);
     
-    // Send alert if enabled
-    const padInfo = await db.getPad(padId);
-    if (padInfo && padInfo.alert_email) {
-      await sendSecurityAlert(padInfo.alert_email, padId, 'file_uploaded', {
-        ip,
-        userAgent,
-        fileName: req.file.originalname
-      });
-    }
-    
     res.json({
       success: true,
       file: {
@@ -472,15 +454,6 @@ app.delete('/api/file/:fileId', async (req, res) => {
       const ip = req.ip || req.connection.remoteAddress;
       const userAgent = req.get('user-agent');
       await db.logSecurityEvent(padId, 'file_deleted', ip, userAgent, true, file.original_name);
-      
-      // Send alert if enabled
-      if (pad.alert_email) {
-        await sendSecurityAlert(pad.alert_email, padId, 'file_deleted', {
-          ip,
-          userAgent,
-          fileName: file.original_name
-        });
-      }
     }
     
     res.json({ success: true });
@@ -516,16 +489,6 @@ app.get('/api/file/:padId/:filename', async (req, res) => {
     const ip = req.ip || req.connection.remoteAddress;
     const userAgent = req.get('user-agent');
     await db.logSecurityEvent(padId, 'file_downloaded', ip, userAgent, true, fileRecord.original_name);
-    
-    // Send alert if enabled
-    const padInfo = await db.getPad(padId);
-    if (padInfo && padInfo.alert_email) {
-      await sendSecurityAlert(padInfo.alert_email, padId, 'file_downloaded', {
-        ip,
-        userAgent,
-        fileName: fileRecord.original_name
-      });
-    }
     
     // Determine resource type
     const isPdf = fileRecord.filename.toLowerCase().endsWith('.pdf');
@@ -817,9 +780,6 @@ async function startServer() {
   try {
     // Initialize database
     await initDatabase();
-    
-    // Initialize email alert service
-    initEmailService();
     
     // Initialize file storage
     await initDirs();
