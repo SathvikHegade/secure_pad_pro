@@ -200,6 +200,8 @@
       <script>
         // Inline script for immediate privacy toggle functionality
         (function() {
+          console.log('[PRIVACY TOGGLE] Script loaded');
+          
           const privacyPrivate = document.getElementById('privacyPrivate');
           const privacyPublic = document.getElementById('privacyPublic');
           const passwordFields = document.getElementById('passwordFields');
@@ -207,8 +209,18 @@
           const confirmPassword = document.getElementById('confirmPassword');
           const createError = document.getElementById('createError');
           
+          console.log('[PRIVACY TOGGLE] Elements found:', {
+            privacyPrivate: !!privacyPrivate,
+            privacyPublic: !!privacyPublic,
+            passwordFields: !!passwordFields
+          });
+          
           function togglePassword() {
-            if (privacyPublic.checked) {
+            const isPublic = privacyPublic && privacyPublic.checked;
+            console.log('[PRIVACY TOGGLE] Toggle called, isPublic:', isPublic);
+            
+            if (isPublic) {
+              console.log('[PRIVACY TOGGLE] Hiding password fields');
               passwordFields.style.display = 'none';
               createPassword.removeAttribute('required');
               confirmPassword.removeAttribute('required');
@@ -220,17 +232,29 @@
                 createError.className = 'error-message hidden';
               }
             } else {
+              console.log('[PRIVACY TOGGLE] Showing password fields');
               passwordFields.style.display = 'block';
               createPassword.setAttribute('required', 'required');
               confirmPassword.setAttribute('required', 'required');
             }
           }
           
-          privacyPrivate.addEventListener('change', togglePassword);
-          privacyPublic.addEventListener('change', togglePassword);
-          
-          // Run on page load
-          togglePassword();
+          if (privacyPrivate && privacyPublic) {
+            privacyPrivate.addEventListener('change', function() {
+              console.log('[PRIVACY TOGGLE] Private selected');
+              togglePassword();
+            });
+            privacyPublic.addEventListener('change', function() {
+              console.log('[PRIVACY TOGGLE] Public selected');
+              togglePassword();
+            });
+            
+            // Run on page load
+            togglePassword();
+            console.log('[PRIVACY TOGGLE] Initial toggle complete');
+          } else {
+            console.error('[PRIVACY TOGGLE] Radio buttons not found!');
+          }
         })();
       </script>
     </div>
@@ -303,7 +327,7 @@
     </div>
   </div>
 
-  <script src="/index.js?v=2"></script>
+  <script src="/index.js?v=3"></script>
 </body>
 
 </html>
