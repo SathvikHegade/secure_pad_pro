@@ -137,54 +137,56 @@
         </div>
 
         <div class="form-group">
-          <label for="createPassword">
-            <span class="label-text">Password</span>
-            <span class="label-hint">At least 4 characters</span>
-          </label>
-          <input 
-            type="password" 
-            id="createPassword" 
-            name="password"
-            required 
-            minlength="4"
-            placeholder="Create a secure password"
-            autocomplete="new-password"
-          >
-        </div>
-
-        <div class="form-group">
-          <label for="confirmPassword">
-            <span class="label-text">Confirm Password</span>
-          </label>
-          <input 
-            type="password" 
-            id="confirmPassword" 
-            name="confirmPassword"
-            required 
-            minlength="4"
-            placeholder="Re-enter your password"
-            autocomplete="new-password"
-          >
-        </div>
-
-        <div class="form-group">
           <label>
             <span class="label-text">Note Privacy</span>
             <span class="label-hint">Choose who can access this note</span>
           </label>
           <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
             <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-              <input type="radio" name="notePrivacy" value="private" checked style="cursor: pointer;">
+              <input type="radio" name="notePrivacy" value="private" checked style="cursor: pointer;" id="privacyPrivate">
               <span>Private (Password Required)</span>
             </label>
             <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-              <input type="radio" name="notePrivacy" value="public" style="cursor: pointer;">
+              <input type="radio" name="notePrivacy" value="public" style="cursor: pointer;" id="privacyPublic">
               <span>Public (URL Only)</span>
             </label>
           </div>
           <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.5rem;">
             Private: Password required to access<br>
             Public: Anyone with the URL can view and edit
+          </div>
+        </div>
+
+        <div id="passwordFields">
+          <div class="form-group">
+            <label for="createPassword">
+              <span class="label-text">Password</span>
+              <span class="label-hint">At least 4 characters</span>
+            </label>
+            <input 
+              type="password" 
+              id="createPassword" 
+              name="password"
+              required 
+              minlength="4"
+              placeholder="Create a secure password"
+              autocomplete="new-password"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="confirmPassword">
+              <span class="label-text">Confirm Password</span>
+            </label>
+            <input 
+              type="password" 
+              id="confirmPassword" 
+              name="confirmPassword"
+              required 
+              minlength="4"
+              placeholder="Re-enter your password"
+              autocomplete="new-password"
+            >
           </div>
         </div>
 

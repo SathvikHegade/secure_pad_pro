@@ -24,6 +24,9 @@ const els = {
   createError: document.getElementById('createError'),
   createSubmit: document.getElementById('createSubmit'),
   urlAvailability: document.getElementById('urlAvailability'),
+  passwordFields: document.getElementById('passwordFields'),
+  privacyPrivate: document.getElementById('privacyPrivate'),
+  privacyPublic: document.getElementById('privacyPublic'),
   
   // Modals
   infoModal: document.getElementById('infoModal'),
@@ -61,6 +64,10 @@ function setupEventListeners() {
   // URL availability check
   els.createUrlName.addEventListener('input', handleUrlInput);
   
+  // Privacy selection toggle
+  els.privacyPrivate.addEventListener('change', togglePasswordFields);
+  els.privacyPublic.addEventListener('change', togglePasswordFields);
+  
   // Modals
   els.infoBtn.addEventListener('click', () => showModal(els.infoModal));
   els.closeInfo.addEventListener('click', () => closeModal(els.infoModal));
@@ -79,6 +86,23 @@ function setupEventListeners() {
 // ============================================
 // TAB SWITCHING
 // ============================================
+
+function togglePasswordFields() {
+  const isPrivate = els.privacyPrivate.checked;
+  
+  if (isPrivate) {
+    els.passwordFields.style.display = 'block';
+    els.createPassword.required = true;
+    els.confirmPassword.required = true;
+  } else {
+    els.passwordFields.style.display = 'none';
+    els.createPassword.required = false;
+    els.confirmPassword.required = false;
+    // Clear password values when switching to public
+    els.createPassword.value = '';
+    els.confirmPassword.value = '';
+  }
+}
 
 function switchTab(tab) {
   // Update buttons
@@ -119,7 +143,7 @@ async function handleLogin(e) {
   
   // Disable submit button
   els.loginSubmit.disabled = true;
-  els.loginSubmit.innerHTML = '<span class="btn-icon">⏳</span><span>Verifying...</span>';
+  els.loginSubmit.textContent = 'Verifying...';
   
   try {
     const res = await fetch('/api/login', {
@@ -139,13 +163,13 @@ async function handleLogin(e) {
     } else {
       showError(els.loginError, data.error || 'Incorrect URL or password.');
       els.loginSubmit.disabled = false;
-      els.loginSubmit.innerHTML = '<span class="btn-icon">🚀</span><span>Access My Note</span>';
+      els.loginSubmit.textContent = 'Access My Note';
     }
   } catch (error) {
     console.error('Login error:', error);
     showError(els.loginError, 'Connection error. Please try again.');
     els.loginSubmit.disabled = false;
-    els.loginSubmit.innerHTML = '<span class="btn-icon">🚀</span><span>Access My Note</span>';
+    els.loginSubmit.textContent = 'Access My Note';
   }
 }
 
@@ -197,9 +221,9 @@ async function handleCreate(e) {
   e.preventDefault();
   
   const urlName = els.createUrlName.value.trim();
-  const password = els.createPassword.value;
-  const confirmPass = els.confirmPassword.value;
-  const isPublic = document.querySelector('input[name="notePrivacy"]:checked').value === 'public';
+  const isPublic = els.privacyPublic.checked;
+  const password = isPublic ? '' : els.createPassword.value;
+  const confirmPass = isPublic ? '' : els.confirmPassword.value;
   
   // Validation
   if (!urlName || urlName.length < 3 || urlName.length > 50) {
@@ -213,19 +237,22 @@ async function handleCreate(e) {
     return;
   }
   
-  if (!password || password.length < 4) {
-    showError(els.createError, 'Password must be at least 4 characters');
-    return;
-  }
-  
-  if (password !== confirmPass) {
-    showError(els.createError, 'Passwords do not match');
-    return;
+  // Only validate password for private notes
+  if (!isPublic) {
+    if (!password || password.length < 4) {
+      showError(els.createError, 'Password must be at least 4 characters');
+      return;
+    }
+    
+    if (password !== confirmPass) {
+      showError(els.createError, 'Passwords do not match');
+      return;
+    }
   }
   
   // Disable submit button
   els.createSubmit.disabled = true;
-  els.createSubmit.innerHTML = '<span class="btn-icon">⏳</span><span>Creating...</span>';
+  els.createSubmit.textContent = 'Creating...';
   
   try {
     const res = await fetch('/api/create-pad', {
@@ -245,13 +272,13 @@ async function handleCreate(e) {
     } else {
       showError(els.createError, data.error || 'Failed to create note');
       els.createSubmit.disabled = false;
-      els.createSubmit.innerHTML = '<span class="btn-icon">✨</span><span>Create My Note</span>';
+      els.createSubmit.textContent = 'Create My Note';
     }
   } catch (error) {
     console.error('Create error:', error);
     showError(els.createError, 'Connection error. Please try again.');
     els.createSubmit.disabled = false;
-    els.createSubmit.innerHTML = '<span class="btn-icon">✨</span><span>Create My Note</span>';
+    els.createSubmit.textContent = 'Create My Note';
   }
 }
 
