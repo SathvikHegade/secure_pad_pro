@@ -103,6 +103,9 @@ function togglePasswordFields() {
     els.createPassword.value = '';
     els.confirmPassword.value = '';
   }
+  
+  // Clear any validation errors when toggling
+  hideError(els.createError);
 }
 
 function switchTab(tab) {
@@ -119,6 +122,11 @@ function switchTab(tab) {
   hideError(els.loginError);
   hideError(els.createError);
   hideError(els.urlAvailability);
+  
+  // Reset password fields visibility when switching to create tab
+  if (tab === 'create') {
+    togglePasswordFields();
+  }
 }
 
 // ============================================
