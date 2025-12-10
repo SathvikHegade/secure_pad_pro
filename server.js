@@ -46,6 +46,30 @@ const ALLOWED_TYPES = {
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
 };
 
+// Auto-delete content after 24 hours
+function startAutoDeleteCleanup() {
+  // Run cleanup every hour
+  const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour in milliseconds
+  
+  async function runCleanup() {
+    try {
+      const cleared = await db.clearExpiredContent();
+      if (cleared.length > 0) {
+        console.log(`🗑️ Auto-deleted content from ${cleared.length} pad(s) older than 24 hours`);
+      }
+    } catch (error) {
+      console.error('Auto-delete cleanup error:', error);
+    }
+  }
+  
+  // Run immediately on startup
+  runCleanup();
+  
+  // Then run every hour
+  setInterval(runCleanup, CLEANUP_INTERVAL);
+  console.log('✓ Auto-delete cleanup service started (runs every hour)');
+}
+
 // Initialize uploads directory
 async function initDirs() {
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
@@ -793,8 +817,18 @@ async function startServer() {
     // Initialize file storage
     await initDirs();
     
-    // Start cleanup interval
+    // Start cleanup intervals
     setInterval(cleanupExpiredFiles, 60 * 60 * 1000); // Every hour
+    setInterval(async () => {
+      try {
+        const cleared = await db.clearExpiredContent();
+        if (cleared.length > 0) {
+          console.log(`🗑️  Auto-deleted content from ${cleared.length} pad(s) older than 24 hours`);
+        }
+      } catch (error) {
+        console.error('Auto-delete cleanup error:', error);
+      }
+    }, 60 * 60 * 1000); // Every hour
     
     // Start server
     app.listen(PORT, '0.0.0.0', () => {
@@ -811,8 +845,13 @@ async function startServer() {
 ╚════════════════════════════════════════╝
 `);
       
-      // Run initial cleanup
+      // Run initial cleanups
       cleanupExpiredFiles();
+      db.clearExpiredContent().then(cleared => {
+        if (cleared.length > 0) {
+          console.log(`🗑️  Auto-deleted content from ${cleared.length} pad(s) older than 24 hours`);
+        }
+      }).catch(err => console.error('Initial content cleanup error:', err));
     });
   } catch (error) {
     console.error('Failed to start server:', error);

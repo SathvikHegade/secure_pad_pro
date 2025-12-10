@@ -35,6 +35,16 @@ async function initDatabase() {
       // Column might already exist
     }
     
+    // Add content_created_at column for auto-delete functionality (migration)
+    try {
+      await client.query(`
+        ALTER TABLE pads 
+        ADD COLUMN IF NOT EXISTS content_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      `);
+    } catch (err) {
+      // Column might already exist
+    }
+    
     // Remove alert_email column if exists (migration)
     try {
       await client.query(`
@@ -152,10 +162,22 @@ const db = {
   // Update pad content
   async updatePad(padId, content) {
     const result = await pool.query(
-      'UPDATE pads SET content = $1, updated_at = CURRENT_TIMESTAMP WHERE pad_id = $2 RETURNING *',
+      'UPDATE pads SET content = $1, updated_at = CURRENT_TIMESTAMP, content_created_at = CURRENT_TIMESTAMP WHERE pad_id = $2 RETURNING *',
       [content, padId]
     );
     return result.rows[0];
+  },
+  
+  // Clear content for pads older than 24 hours
+  async clearExpiredContent() {
+    const result = await pool.query(
+      `UPDATE pads 
+       SET content = '', content_created_at = CURRENT_TIMESTAMP 
+       WHERE content != '' 
+       AND content_created_at < NOW() - INTERVAL '24 hours' 
+       RETURNING pad_id`
+    );
+    return result.rows;
   },
   
   // Get files for pad
