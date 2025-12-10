@@ -145,8 +145,8 @@ app.post('/api/create-pad', async (req, res) => {
       });
     }
     
-    // Validate password
-    if (!password || password.length < 4) {
+    // Validate password only for private notes
+    if (!isPublic && (!password || password.length < 4)) {
       return res.status(400).json({ error: 'Password must be at least 4 characters' });
     }
     
@@ -156,7 +156,7 @@ app.post('/api/create-pad', async (req, res) => {
     }
     
     // Create pad with hashed password and privacy setting
-    const passwordHash = await hashPassword(password);
+    const passwordHash = isPublic ? await hashPassword('') : await hashPassword(password);
     await db.createPad(urlName, passwordHash, isPublic === true);
     
     res.json({ success: true, padId: urlName });
