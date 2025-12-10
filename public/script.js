@@ -65,16 +65,22 @@ async function init() {
   
   // Try to load as public note first
   try {
+    console.log('[PUBLIC CHECK] Attempting to load as public note...');
     const res = await fetch(`/api/pad/${padId}/get`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: '' })
     });
     
+    console.log('[PUBLIC CHECK] Response status:', res.status);
+    
     if (res.ok) {
       const data = await res.json();
+      console.log('[PUBLIC CHECK] Response data:', data);
+      
       if (data.isPublic) {
         // Public note - load directly
+        console.log('[PUBLIC CHECK] Note is public, loading without password');
         currentPassword = ''; // No password needed
         els.editor.value = data.content || '';
         renderFiles(data.files || []);
@@ -85,9 +91,11 @@ async function init() {
     }
   } catch (e) {
     // Not public, continue to password screen
+    console.log('[PUBLIC CHECK] Error or not public:', e);
   }
   
   // Show password screen for private notes
+  console.log('[PUBLIC CHECK] Showing password screen for private note');
   setupAuthScreen();
   setupEventListeners();
   
