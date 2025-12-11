@@ -98,3 +98,6 @@ T S Sathvik Hegade · sathvikhegade3@gmail.com · MIT License
 - Markdown editing experience with export options.
 - Collaboration mode with real-time presence and history.
 - Native mobile shell for quick capture on Android/iOS.
+
+
+Built by Sathvik Hegade.
