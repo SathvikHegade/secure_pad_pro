@@ -29,367 +29,67 @@ A modern, secure note-taking platform with **public/private notes**, **custom UR
 - **Unique URL Enforcement** - Each custom URL can only be used once
 - **MIME Type Validation** - File headers checked, not just extensions
 - **File Size Limits** - 10MB maximum per upload
-- **Secure Error Messages** - Generic messages prevent enumeration attacks
-- **Brute Force Protection** - Rate limiting on failed login attempts
+# SecureNote
 
-## 🏗️ Architecture
+Secure notes with custom URLs, optional passwords, AI summaries, Cloudinary uploads, and automatic 24-hour cleanup.
 
-```
-┌──────────────────────────────────────────────┐
-│          Frontend (Browser)                  │
-│  • Homepage: Login/Create Pad                │
-│  • Public/Private Note Selection             │
-│  • Pad Editor: Auto-save, File uploads       │
-│  • AI Summarization UI                       │
-└─────────────┬────────────────────────────────┘
-              │ REST API (JSON)
-┌─────────────▼────────────────────────────────┐
-│         Backend (Node.js/Express)            │
-│  • Custom URL Management                     │
-│  • Public/Private Note Logic                 │
-│  • bcrypt Password Hashing                   │
-│  • Auto-Delete Service (hourly)              │
-│  • File Validation & Cloudinary Upload       │
-│  • Google Gemini AI Integration              │
-│  • Security Logging & Monitoring             │
-└─────────────┬────────────────────────────────┘
-              │
-┌─────────────▼────────────────────────────────┐
-│          Storage Layer                       │
-│  • PostgreSQL Database (pads, files, logs)   │
-│  • Cloudinary (file storage CDN)             │
-└──────────────────────────────────────────────┘
-```
+**Live Demo**: https://your-production-url.com (update when deployed)
 
-## 📁 Project Structure
+## Highlights
 
-```
-secure_pad_pro/
-├── server.js              # Express backend with all routes
-├── db.js                  # PostgreSQL database operations
-├── package.json           # Dependencies and scripts
-├── .env                   # Environment variables (not in git)
-├── .env.example           # Environment template
-├── README.md              # This file
-├── SETUP.md               # PostgreSQL setup guide
-├── QUICKSTART.md          # Quick deployment guide
-├── render.yaml            # Render.com deployment config
-├── public/
-│   ├── index.html         # Homepage (login/create pad)
-│   ├── index.js           # Homepage JavaScript
-│   ├── pad.html           # Pad editor interface
-│   ├── script.js          # Pad editor JavaScript
-│   ├── style.css          # Global styles (professional design)
-│   └── manifest.json      # PWA manifest
-├── pads/                  # Legacy JSON storage (deprecated)
-└── uploads/               # Legacy uploads (deprecated)
-```
+- Public or private notes with bcrypt-protected passwords
+- Auto-save every 2 seconds and automatic content purge after 24 hours
+- Google Gemini summaries with document insights
+- Cloudinary-backed uploads (PDF, JPG, PNG, DOCX up to 10 MB)
+- Responsive UI with dark mode and professional modals
+- Security logging, rate limiting, and PostgreSQL persistence
 
-## 🚀 Quick Start
-
-### 1. Install Dependencies
+## Quick Start
 
 ```bash
 npm install
+cp .env.example .env   # fill PORT, DATABASE_URL, GEMINI_API_KEY, CLOUDINARY_*
+npm start               # or npm run dev
 ```
 
-### 2. Configure Environment
+## Tech Stack
 
-```bash
-cp .env.example .env
-# Edit .env and add your Gemini API key
-```
+- Backend: Node.js, Express, PostgreSQL, bcrypt
+- Storage: PostgreSQL tables (pads, files, security_logs), Cloudinary CDN
+- AI: Google Gemini 2.5 Flash via @google/generative-ai
+- Frontend: HTML5, CSS3, vanilla JavaScript
 
-Get your Gemini API key: https://makersuite.google.com/app/apikey
+## Architecture
 
-### 3. Run the Server
+- Browser: index.html for create/access, pad.html for editing
+- API: server.js routes for auth, content, uploads, AI, cleanup jobs
+- Data: PostgreSQL for metadata, Cloudinary for files; hourly jobs enforce expiry
 
-```bash
-# Development (with auto-restart)
-npm run dev
+## Screenshots
 
-# Production
-npm start
-```
+Replace the placeholders once assets are available:
 
-### 4. Open in Browser
+![Homepage](docs/screenshots/home.png)
+![Pad Editor](docs/screenshots/editor.png)
+![File Management](docs/screenshots/files.png)
+![Dark Mode](docs/screenshots/darkmode.png)
+![AI Summary](docs/screenshots/summary.png)
 
-Navigate to `http://localhost:3000`
+## Documentation
 
-## 📚 Full Documentation
+Break out deep dives into dedicated docs (recommended structure):
 
-See **[SETUP.md](./SETUP.md)** for:
-- Detailed installation instructions
-- Configuration options
-- Deployment guides (Render, Heroku, Railway, etc.)
-- Complete API documentation
-- Database schema
-- Security best practices
-- Troubleshooting guide
+- docs/SETUP.md – local setup & environment
+- docs/API.md – endpoint reference
+- docs/SECURITY.md – auth and hardening details
+- docs/DB_SCHEMA.md – PostgreSQL schema
+- docs/DEPLOY.md – Render/Railway deployment steps
+- docs/TROUBLESHOOTING.md – common issues and fixes
 
-## 🎯 How to Use
+## License & Contact
 
-### Creating a New Note
-
-1. Go to the homepage
-2. Click **"Create New Note"** tab
-3. Choose **Public** or **Private**:
-   - **Public**: No password required, anyone with URL can access
-   - **Private**: Password-protected, only you can access
-4. Enter a custom URL name (e.g., "myproject123" or "New5")
-5. If private, create and confirm a secure password
-6. Click **"Create My Note"**
-7. Start writing - auto-saves every 2 seconds!
-
-### Accessing an Existing Note
-
-**Public Notes:**
-1. Go to homepage
-2. Enter the URL name
-3. Leave password field **empty**
-4. Click **"Access My Note"**
-
-**Private Notes:**
-1. Go to homepage
-2. Enter the URL name
-3. Enter your password
-4. Click **"Access My Note"**
-
-### Using Features
-
-**Auto-Delete (24 Hours):**
-- Note content automatically deletes after 24 hours of last edit
-- Timer resets every time you save changes
-- URL and structure remain, only content is cleared
-
-**AI Summarization:**
-1. Write at least 50 characters in your note
-2. Click **"Summarize"** button
-3. Google Gemini AI generates a concise summary
-4. View document statistics and insights
-
-**File Uploads:**
-1. Click **"Upload"** button
-2. Select file (PDF, JPG, PNG, DOCX up to 10MB)
-3. Files stored on Cloudinary CDN
-4. Click to preview or download
-
-## 🔑 Environment Variables
-
-Create a `.env` file with:
-
-```env
-# Server Port (default: 3000)
-PORT=3000
-
-# Node Environment
-NODE_ENV=production
-
-# PostgreSQL Database URL (required)
-DATABASE_URL=postgresql://user:password@host:5432/database
-
-# Google Gemini API Key (required for AI summarization)
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=models/gemini-2.5-flash
-
-# Cloudinary Configuration (required for file uploads)
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-```
-
-**Get API Keys:**
-- **Gemini API**: https://makersuite.google.com/app/apikey (Free tier available)
-- **Cloudinary**: https://cloudinary.com/users/register/free (25GB free storage)
-- **PostgreSQL**: Render.com or Supabase (free tier available)
-
-## 🌐 Deployment
-
-### Deploy to Render
-
-1. Create account at https://render.com
-2. Create new **PostgreSQL Database** (free tier)
-3. Create new **Web Service**
-4. Connect your repository
-5. Set environment variables:
-   - `DATABASE_URL` (from PostgreSQL dashboard)
-   - `GEMINI_API_KEY` (from Google AI Studio)
-   - `CLOUDINARY_CLOUD_NAME` (from Cloudinary dashboard)
-   - `CLOUDINARY_API_KEY` (from Cloudinary dashboard)
-   - `CLOUDINARY_API_SECRET` (from Cloudinary dashboard)
-6. Deploy!
-
-**Important:** Get free Cloudinary account at https://cloudinary.com (25GB storage free)
-
-### Deploy to Other Platforms
-
-See [SETUP.md](./SETUP.md) for deployment guides for:
-- Heroku
-- Railway
-- DigitalOcean
-- AWS
-- Any Node.js hosting platform
-
-## 🛡️ Security
-
-## 🛡️ Security
-
-### Password Security
-- **bcrypt hashing** with 10 salt rounds
-- No plain text password storage
-- Timing-safe password comparison
-- Optional for public notes
-
-### Public/Private Notes
-- **Public notes**: No password required, accessible to anyone with URL
-- **Private notes**: Password-protected, bcrypt hashed
-- Frontend dynamically shows/hides password fields
-
-### Input Validation
-- Custom URL names: `^[a-zA-Z0-9_-]{3,50}$`
-- Password minimum: 4 characters (only for private notes)
-- File size limit: 10MB per file
-- Allowed file types: PDF, JPG, PNG, DOCX
-
-### File Security
-- MIME type validation using magic bytes
-- Cloudinary CDN storage with secure URLs
-- Automatic expiration after 24 hours
-- Secure file ID generation (32-char hex)
-
-### Auto-Delete Protection
-- Content automatically cleared after 24 hours
-- Timer resets on every save
-- Prevents data accumulation
-- Note structure preserved, only content cleared
-
-## 📊 Database Schema
-
-### PostgreSQL Tables
-
-**pads** table:
-```sql
-CREATE TABLE pads (
-  id SERIAL PRIMARY KEY,
-  pad_id VARCHAR(255) UNIQUE NOT NULL,
-  password_hash TEXT,
-  content TEXT DEFAULT '',
-  is_public BOOLEAN DEFAULT false,
-  content_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-**files** table:
-```sql
-CREATE TABLE files (
-  id SERIAL PRIMARY KEY,
-  pad_id VARCHAR(255) NOT NULL,
-  filename VARCHAR(255) NOT NULL,
-  original_name VARCHAR(255) NOT NULL,
-  cloudinary_url TEXT,
-  cloudinary_public_id TEXT,
-  size INTEGER NOT NULL,
-  mime_type VARCHAR(100),
-  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  expires_at TIMESTAMP,
-  FOREIGN KEY (pad_id) REFERENCES pads(pad_id) ON DELETE CASCADE
-);
-```
-
-**security_logs** table:
-```sql
-CREATE TABLE security_logs (
-  id SERIAL PRIMARY KEY,
-  pad_id VARCHAR(255) NOT NULL,
-  event_type VARCHAR(50) NOT NULL,
-  ip_address VARCHAR(45),
-  user_agent TEXT,
-  success BOOLEAN,
-  details TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (pad_id) REFERENCES pads(pad_id) ON DELETE CASCADE
-);
-```
-
-**Key Features:**
-- `is_public`: Determines if note requires password
-- `content_created_at`: Tracks content age for auto-delete (24hr)
-- `cloudinary_url`: CDN URL for uploaded files
-- Foreign keys ensure data integrity with CASCADE delete
-
-## 🔧 API Endpoints
-
-### Authentication & Note Management
-- `POST /api/create-pad` - Create new note (public or private)
-  - Body: `{ urlName, password?, isPublic }`
-- `POST /api/login` - Access existing note
-  - Body: `{ urlName, password? }`
-  - Public notes: password optional
-- `GET /api/check-url/:urlName` - Check URL availability
-
-### Content Operations
-- `POST /api/pad/:padId/get` - Get note content
-  - Body: `{ password? }` (optional for public notes)
-- `POST /api/pad/:padId/save` - Save note content
-  - Body: `{ password, content }`
-  - Resets 24hr auto-delete timer
-
-### File Operations
-- `POST /api/upload/:padId` - Upload file to Cloudinary
-  - Multipart form data
-  - Returns Cloudinary URL
-- `POST /files/:padId/:fileId` - Get file metadata
-- `DELETE /api/pad/:padId/file/:fileId` - Delete file
-
-### AI Features
-- `POST /api/summarize/:padId` - Generate AI summary with Gemini
-  - Body: `{ password, content }`
-
-### Background Services
-- Auto-delete cleanup: Runs hourly, clears content older than 24 hours
-- File expiry cleanup: Removes expired Cloudinary files
-
-See [POSTGRESQL_SETUP.md](./POSTGRESQL_SETUP.md) for complete API documentation.
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**"Gemini API key not configured"**
-- Ensure `.env` file exists with valid `GEMINI_API_KEY`
-- Get free key at https://makersuite.google.com/app/apikey
-
-**"This URL name is already taken"**
-- Choose a different custom URL name
-- Try adding numbers or hyphens
-
-**Database connection failed**
-- Verify `DATABASE_URL` in `.env` is correct
-- Check PostgreSQL server is running
-- See [POSTGRESQL_SETUP.md](./POSTGRESQL_SETUP.md) for setup
-
-**File upload fails**
-- Check file size (max 10MB)
-- Verify file type is allowed (PDF, JPG, PNG, DOCX)
-- Ensure Cloudinary credentials are correct in `.env`
-
-**Public note still asking for password**
-- Clear browser cache (Ctrl+Shift+Delete)
-- Use incognito/private window to test
-- Verify `is_public=true` in database
-
-**Content disappeared after 24 hours**
-- This is expected - auto-delete feature
-- Timer resets on every save
-- URL and files remain, only text content is cleared
-
-See [SETUP.md](./SETUP.md) for more troubleshooting tips.
-
-## 📦 Dependencies
-
-### Production
+- License: MIT
+- Maintainer: T S Sathvik Hegade · sathvikhegade3@gmail.com
 - `express` - Web framework
 - `pg` - PostgreSQL client
 - `multer` - File upload handling
