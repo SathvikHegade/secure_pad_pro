@@ -188,12 +188,13 @@ const db = {
     return result.rows[0];
   },
   
-  // Clear content for pads older than 24 hours
+  // Clear content for public pads only (private pads have no time limit)
   async clearExpiredContent() {
     const result = await pool.query(
       `UPDATE pads 
        SET content = '', content_created_at = CURRENT_TIMESTAMP 
        WHERE content != '' 
+       AND is_public = true
        AND content_created_at + (COALESCE(retention_minutes, 1440) * INTERVAL '1 minute') < NOW() 
        RETURNING pad_id`
     );

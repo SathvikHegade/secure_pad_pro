@@ -58,7 +58,7 @@ function startAutoDeleteCleanup() {
     try {
       const cleared = await db.clearExpiredContent();
       if (cleared.length > 0) {
-        console.log(`🗑️ Auto-deleted content from ${cleared.length} pad(s) older than 24 hours`);
+        console.log(`🗑️ Auto-deleted content from ${cleared.length} public pad(s)`);
       }
     } catch (error) {
       console.error('Auto-delete cleanup error:', error);
@@ -469,9 +469,12 @@ app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
     
     console.log('[UPLOAD] ✓ Uploaded to Cloudinary:', uploadResult.secure_url);
     
-    // Calculate expiration (24 hours from now)
-    const retentionMinutes = pad.retention_minutes || DEFAULT_RETENTION_MINUTES;
-    const expiresAt = new Date(Date.now() + retentionMinutes * 60 * 1000);
+    // Calculate expiration - private pads never expire, public pads use retention setting
+    let expiresAt = null;
+    if (pad.is_public) {
+      const retentionMinutes = pad.retention_minutes || DEFAULT_RETENTION_MINUTES;
+      expiresAt = new Date(Date.now() + retentionMinutes * 60 * 1000);
+    }
     
     // Save to database with Cloudinary URL
     const fileData = await db.addFile(
