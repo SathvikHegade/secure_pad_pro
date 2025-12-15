@@ -27,6 +27,8 @@ const els = {
   passwordFields: document.getElementById('passwordFields'),
   privacyPrivate: document.getElementById('privacyPrivate'),
   privacyPublic: document.getElementById('privacyPublic'),
+  retentionFields: document.getElementById('retentionFields'),
+  retentionSelect: document.getElementById('retentionMinutes'),
   
   // Modals
   infoModal: document.getElementById('infoModal'),
@@ -97,6 +99,9 @@ function togglePasswordFields() {
     els.passwordFields.style.display = 'block';
     els.createPassword.required = true;
     els.confirmPassword.required = true;
+    if (els.retentionFields) {
+      els.retentionFields.style.display = 'none';
+    }
   } else {
     els.passwordFields.style.display = 'none';
     els.createPassword.required = false;
@@ -104,6 +109,9 @@ function togglePasswordFields() {
     // Clear password values when switching to public
     els.createPassword.value = '';
     els.confirmPassword.value = '';
+    if (els.retentionFields) {
+      els.retentionFields.style.display = 'block';
+    }
   }
   
   // Clear any validation errors when toggling
@@ -232,6 +240,7 @@ async function handleCreate(e) {
   const isPublic = els.privacyPublic.checked;
   const password = isPublic ? '' : els.createPassword.value;
   const confirmPass = isPublic ? '' : els.confirmPassword.value;
+  const retentionMinutes = els.retentionSelect ? parseInt(els.retentionSelect.value, 10) || 1440 : 1440;
   
   // Validation
   if (!urlName || urlName.length < 3 || urlName.length > 50) {
@@ -266,7 +275,7 @@ async function handleCreate(e) {
     const res = await fetch('/api/create-pad', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ urlName, password, isPublic })
+      body: JSON.stringify({ urlName, password, isPublic, retentionMinutes })
     });
     
     const data = await res.json();

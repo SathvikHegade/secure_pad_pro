@@ -575,6 +575,33 @@ body {
   margin-bottom: 1rem;
 }
 
+.retention-controls {
+  display: none;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.retention-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.retention-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  font-size: 0.9rem;
+  min-width: 180px;
+}
+
+.retention-hint {
+  font-size: 0.75rem;
+  color: var(--text-light);
+}
+
 .files-list {
   display: flex;
   flex-direction: column;

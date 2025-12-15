@@ -21,7 +21,8 @@ async function initDatabase() {
         content TEXT DEFAULT '',
         is_public BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        retention_minutes INTEGER DEFAULT 1440
       )
     `);
     
@@ -40,6 +41,16 @@ async function initDatabase() {
       await client.query(`
         ALTER TABLE pads 
         ADD COLUMN IF NOT EXISTS content_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      `);
+    } catch (err) {
+      // Column might already exist
+    }
+
+    // Add retention_minutes column if it doesn't exist (migration)
+    try {
+      await client.query(`
+        ALTER TABLE pads 
+        ADD COLUMN IF NOT EXISTS retention_minutes INTEGER DEFAULT 1440
       `);
     } catch (err) {
       // Column might already exist
@@ -145,10 +156,10 @@ const db = {
   },
   
   // Create new pad
-  async createPad(padId, passwordHash, isPublic = false) {
+  async createPad(padId, passwordHash, isPublic = false, retentionMinutes = 1440) {
     const result = await pool.query(
-      'INSERT INTO pads (pad_id, password_hash, content, is_public) VALUES ($1, $2, $3, $4) RETURNING *',
-      [padId, passwordHash, '', isPublic]
+      'INSERT INTO pads (pad_id, password_hash, content, is_public, retention_minutes) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [padId, passwordHash, '', isPublic, retentionMinutes]
     );
     return result.rows[0];
   },
@@ -167,6 +178,15 @@ const db = {
     );
     return result.rows[0];
   },
+
+  // Update retention duration for pad
+  async updatePadRetention(padId, retentionMinutes) {
+    const result = await pool.query(
+      'UPDATE pads SET retention_minutes = $2, updated_at = CURRENT_TIMESTAMP, content_created_at = CURRENT_TIMESTAMP WHERE pad_id = $1 RETURNING *',
+      [padId, retentionMinutes]
+    );
+    return result.rows[0];
+  },
   
   // Clear content for pads older than 24 hours
   async clearExpiredContent() {
@@ -174,7 +194,7 @@ const db = {
       `UPDATE pads 
        SET content = '', content_created_at = CURRENT_TIMESTAMP 
        WHERE content != '' 
-       AND content_created_at < NOW() - INTERVAL '24 hours' 
+       AND content_created_at + (COALESCE(retention_minutes, 1440) * INTERVAL '1 minute') < NOW() 
        RETURNING pad_id`
     );
     return result.rows;
@@ -197,6 +217,18 @@ const db = {
       [padId, filename, originalName, cloudinaryUrl, cloudinaryPublicId, size, mimeType, expiresAt]
     );
     return result.rows[0];
+  },
+
+  // Update file expirations to align with new retention
+  async updateFileExpirations(padId, retentionMinutes) {
+    const result = await pool.query(
+      `UPDATE files 
+       SET expires_at = NOW() + ($2 * INTERVAL '1 minute') 
+       WHERE pad_id = $1 
+       RETURNING *`,
+      [padId, retentionMinutes]
+    );
+    return result.rows;
   },
   
   // Delete file

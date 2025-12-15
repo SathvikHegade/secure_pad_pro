@@ -6,6 +6,10 @@
 let padId = '';
 let currentPassword = '';
 let saveTimeout = null;
+let isPublicPad = false;
+let currentRetentionMinutes = 1440;
+const MIN_RETENTION_MINUTES = 30;
+const MAX_RETENTION_MINUTES = 10080;
 
 // DOM Elements
 const els = {
@@ -34,7 +38,10 @@ const els = {
   closePreview: document.getElementById('closePreview'),
   infoBtn: document.getElementById('infoBtn'),
   infoModal: document.getElementById('infoModal'),
-  closeInfo: document.getElementById('closeInfo')
+  closeInfo: document.getElementById('closeInfo'),
+  retentionControls: document.getElementById('retentionControls'),
+  retentionSelect: document.getElementById('retentionSelect'),
+  retentionInfo: document.getElementById('retentionInfo')
 };
 
 // ============================================
@@ -84,6 +91,9 @@ async function init() {
         currentPassword = ''; // No password needed
         els.editor.value = data.content || '';
         renderFiles(data.files || []);
+        isPublicPad = true;
+        currentRetentionMinutes = data.retentionMinutes || currentRetentionMinutes;
+        updateRetentionUI();
         showMainScreen();
         setupEventListeners();
         return;
@@ -133,6 +143,10 @@ function setupEventListeners() {
   els.closePreview.addEventListener('click', () => closeModal(els.previewModal));
   els.closeInfo.addEventListener('click', () => closeModal(els.infoModal));
   els.infoBtn.addEventListener('click', () => showModal(els.infoModal));
+
+  if (els.retentionSelect) {
+    els.retentionSelect.addEventListener('change', handleRetentionChange);
+  }
   
   // Click outside modal
   [els.summaryModal, els.previewModal, els.infoModal].forEach(modal => {
@@ -182,6 +196,9 @@ async function handleAuth(e) {
       const data = await res.json();
       els.editor.value = data.content || '';
       renderFiles(data.files || []);
+      isPublicPad = data.isPublic;
+      currentRetentionMinutes = data.retentionMinutes || currentRetentionMinutes;
+      updateRetentionUI();
       showMainScreen();
     } else {
       const data = await res.json();
@@ -223,6 +240,9 @@ async function loadPad() {
     const data = await res.json();
     els.editor.value = data.content || '';
     renderFiles(data.files || []);
+    isPublicPad = data.isPublic;
+    currentRetentionMinutes = data.retentionMinutes || currentRetentionMinutes;
+    updateRetentionUI();
   } catch (error) {
     console.error('Load error:', error);
   }
@@ -586,6 +606,103 @@ function formatSize(bytes) {
 
 function formatDate(isoString) {
   return new Date(isoString).toLocaleString();
+}
+
+function formatRetention(minutes) {
+  if (!minutes) return '24 hours';
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  }
+  const hours = minutes / 60;
+  if (hours < 24) {
+    return `${hours % 1 === 0 ? hours : hours.toFixed(1)} hour${hours === 1 ? '' : 's'}`;
+  }
+  const days = minutes / (60 * 24);
+  return `${days % 1 === 0 ? days : days.toFixed(1)} day${days === 1 ? '' : 's'}`;
+}
+
+function updateRetentionUI() {
+  if (els.retentionInfo) {
+    els.retentionInfo.textContent = `Content and files auto-delete after ${formatRetention(currentRetentionMinutes)}.`;
+    els.retentionInfo.style.color = '';
+  }
+
+  if (!els.retentionControls) return;
+  if (isPublicPad) {
+    els.retentionControls.style.display = 'flex';
+    if (els.retentionSelect) {
+      const targetValue = currentRetentionMinutes.toString();
+      const exists = Array.from(els.retentionSelect.options).some(opt => opt.value === targetValue);
+      if (!exists) {
+        const option = document.createElement('option');
+        option.value = targetValue;
+        option.textContent = formatRetention(currentRetentionMinutes);
+        els.retentionSelect.appendChild(option);
+      }
+      els.retentionSelect.value = targetValue;
+    }
+  } else {
+    els.retentionControls.style.display = 'none';
+  }
+}
+
+async function handleRetentionChange() {
+  if (!isPublicPad || !els.retentionSelect) {
+    if (els.retentionSelect) {
+      els.retentionSelect.value = currentRetentionMinutes.toString();
+    }
+    return;
+  }
+
+  const minutes = parseInt(els.retentionSelect.value, 10);
+  if (!Number.isInteger(minutes) || minutes < MIN_RETENTION_MINUTES || minutes > MAX_RETENTION_MINUTES) {
+    els.retentionSelect.value = currentRetentionMinutes.toString();
+    return;
+  }
+  if (minutes === currentRetentionMinutes) {
+    return;
+  }
+
+  try {
+    els.retentionSelect.disabled = true;
+    if (els.retentionInfo) {
+      els.retentionInfo.textContent = 'Updating auto-delete timer...';
+    }
+
+    const res = await fetch(`/api/pad/${padId}/retention`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ retentionMinutes: minutes, password: currentPassword })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      if (els.retentionInfo) {
+        els.retentionInfo.textContent = data.error || 'Failed to update timer.';
+        els.retentionInfo.style.color = '#c53030';
+      }
+      els.retentionSelect.value = currentRetentionMinutes.toString();
+      return;
+    }
+
+    currentRetentionMinutes = data.retentionMinutes || minutes;
+    updateRetentionUI();
+    if (Array.isArray(data.files)) {
+      renderFiles(data.files);
+    }
+  } catch (error) {
+    console.error('Retention update error:', error);
+    if (els.retentionInfo) {
+      els.retentionInfo.textContent = 'Update failed. Please try again.';
+      els.retentionInfo.style.color = '#c53030';
+    }
+    els.retentionSelect.value = currentRetentionMinutes.toString();
+  } finally {
+    if (els.retentionSelect) {
+      els.retentionSelect.disabled = false;
+    }
+    setTimeout(() => updateRetentionUI(), 3000);
+  }
 }
 // ============================================
 // DARK MODE

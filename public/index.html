@@ -157,6 +157,21 @@
           </div>
         </div>
 
+        <div class="form-group" id="retentionFields" style="display: none;">
+          <label for="retentionMinutes">
+            <span class="label-text">Auto-Delete Timer</span>
+            <span class="label-hint">Choose how long content and files stay available</span>
+          </label>
+          <select id="retentionMinutes" name="retentionMinutes" style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: 0.5rem; font-size: 1rem;">
+            <option value="60">1 hour</option>
+            <option value="360">6 hours</option>
+            <option value="720">12 hours</option>
+            <option value="1440" selected>24 hours</option>
+            <option value="4320">3 days</option>
+            <option value="10080">7 days</option>
+          </select>
+        </div>
+
         <div id="passwordFields">
           <div class="form-group">
             <label for="createPassword">
@@ -208,11 +223,13 @@
           const createPassword = document.getElementById('createPassword');
           const confirmPassword = document.getElementById('confirmPassword');
           const createError = document.getElementById('createError');
+          const retentionFields = document.getElementById('retentionFields');
           
           console.log('[PRIVACY TOGGLE] Elements found:', {
             privacyPrivate: !!privacyPrivate,
             privacyPublic: !!privacyPublic,
-            passwordFields: !!passwordFields
+            passwordFields: !!passwordFields,
+            retentionFields: !!retentionFields
           });
           
           function togglePassword() {
@@ -226,6 +243,9 @@
               confirmPassword.removeAttribute('required');
               createPassword.value = '';
               confirmPassword.value = '';
+              if (retentionFields) {
+                retentionFields.style.display = 'block';
+              }
               // Clear error message
               if (createError) {
                 createError.textContent = '';
@@ -236,6 +256,9 @@
               passwordFields.style.display = 'block';
               createPassword.setAttribute('required', 'required');
               confirmPassword.setAttribute('required', 'required');
+              if (retentionFields) {
+                retentionFields.style.display = 'none';
+              }
             }
           }
           
@@ -327,7 +350,7 @@
     </div>
   </div>
 
-  <script src="/index.js?v=3"></script>
+  <script src="/index.js?v=4"></script>
 </body>
 
 </html>

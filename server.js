@@ -19,6 +19,9 @@ cloudinary.config({
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DEFAULT_RETENTION_MINUTES = 1440;
+const MIN_RETENTION_MINUTES = 30;
+const MAX_RETENTION_MINUTES = 10080; // 7 days
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -112,6 +115,13 @@ function validateMime(buffer, filename) {
   return false;
 }
 
+function sanitizeRetentionMinutes(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed)) return null;
+  if (parsed < MIN_RETENTION_MINUTES || parsed > MAX_RETENTION_MINUTES) return null;
+  return parsed;
+}
+
 // Multer configuration
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -160,7 +170,16 @@ app.get('/api/check-url/:urlName', async (req, res) => {
 // Create new pad with custom URL
 app.post('/api/create-pad', async (req, res) => {
   try {
-    const { urlName, password, isPublic } = req.body;
+    const { urlName, password, isPublic, retentionMinutes: requestedRetention } = req.body;
+    const isPublicNote = isPublic === true || isPublic === 'true';
+    let retentionMinutes = DEFAULT_RETENTION_MINUTES;
+    if (requestedRetention !== undefined) {
+      const sanitized = sanitizeRetentionMinutes(requestedRetention);
+      if (sanitized === null) {
+        return res.status(400).json({ error: `Retention must be between ${MIN_RETENTION_MINUTES} and ${MAX_RETENTION_MINUTES} minutes` });
+      }
+      retentionMinutes = sanitized;
+    }
     
     // Validate URL name
     if (!urlName || !isValidCustomUrl(urlName)) {
@@ -170,7 +189,7 @@ app.post('/api/create-pad', async (req, res) => {
     }
     
     // Validate password only for private notes
-    if (!isPublic && (!password || password.length < 4)) {
+    if (!isPublicNote && (!password || password.length < 4)) {
       return res.status(400).json({ error: 'Password must be at least 4 characters' });
     }
     
@@ -180,10 +199,10 @@ app.post('/api/create-pad', async (req, res) => {
     }
     
     // Create pad with hashed password and privacy setting
-    const passwordHash = isPublic ? await hashPassword('') : await hashPassword(password);
-    await db.createPad(urlName, passwordHash, isPublic === true);
+    const passwordHash = isPublicNote ? await hashPassword('') : await hashPassword(password);
+    await db.createPad(urlName, passwordHash, isPublicNote, retentionMinutes);
     
-    res.json({ success: true, padId: urlName });
+    res.json({ success: true, padId: urlName, retentionMinutes });
   } catch (error) {
     console.error('Create pad error:', error);
     res.status(500).json({ error: 'Failed to create pad' });
@@ -207,7 +226,7 @@ app.post('/api/login', async (req, res) => {
     
     // If note is public, allow access without password
     if (pad.is_public) {
-      return res.json({ success: true, padId: urlName, isPublic: true });
+      return res.json({ success: true, padId: urlName, isPublic: true, retentionMinutes: pad.retention_minutes || DEFAULT_RETENTION_MINUTES });
     }
     
     // For private notes, verify password
@@ -220,7 +239,7 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Incorrect password' });
     }
     
-    res.json({ success: true, padId: urlName, isPublic: false });
+    res.json({ success: true, padId: urlName, isPublic: false, retentionMinutes: pad.retention_minutes || DEFAULT_RETENTION_MINUTES });
   } catch (error) {
     console.error('Login error:', error);
     res.status(401).json({ error: 'Failed to access note' });
@@ -257,7 +276,7 @@ app.post('/api/pad/:padId/get', async (req, res) => {
       // Log access
       await db.logSecurityEvent(padId, 'note_accessed', ip, userAgent, true, 'public');
       
-      return res.json({ content: pad.content || '', files, isPublic: true });
+      return res.json({ content: pad.content || '', files, isPublic: true, retentionMinutes: pad.retention_minutes || DEFAULT_RETENTION_MINUTES });
     }
     
     // Private note - verify password
@@ -293,7 +312,7 @@ app.post('/api/pad/:padId/get', async (req, res) => {
     // Log successful access
     await db.logSecurityEvent(padId, 'note_accessed', ip, userAgent, true, 'private');
     
-    res.json({ content: pad.content || '', files, isPublic: false });
+    res.json({ content: pad.content || '', files, isPublic: false, retentionMinutes: pad.retention_minutes || DEFAULT_RETENTION_MINUTES });
   } catch (error) {
     console.error('Get pad error:', error);
     res.status(500).json({ error: 'Failed to load pad' });
@@ -329,6 +348,49 @@ app.post('/api/pad/:padId/save', async (req, res) => {
   }
 });
 
+// Update retention duration for a pad
+app.post('/api/pad/:padId/retention', async (req, res) => {
+  try {
+    const { padId } = req.params;
+    const { retentionMinutes: requestedRetention, password } = req.body;
+
+    const pad = await db.getPad(padId);
+    if (!pad) {
+      return res.status(404).json({ error: 'Pad not found' });
+    }
+
+    const sanitized = sanitizeRetentionMinutes(requestedRetention);
+    if (sanitized === null) {
+      return res.status(400).json({ error: `Retention must be between ${MIN_RETENTION_MINUTES} and ${MAX_RETENTION_MINUTES} minutes` });
+    }
+
+    if (!pad.is_public) {
+      const isValid = await verifyPassword(password, pad.password_hash);
+      if (!isValid) {
+        return res.status(401).json({ error: 'Incorrect password' });
+      }
+    }
+
+    const updatedPad = await db.updatePadRetention(padId, sanitized);
+    await db.updateFileExpirations(padId, sanitized);
+    const filesData = await db.getFiles(padId);
+    const files = filesData.map(f => ({
+      id: f.id,
+      name: f.original_name,
+      filename: f.filename,
+      size: f.size,
+      type: f.mime_type,
+      uploadedAt: f.uploaded_at,
+      expiresAt: f.expires_at
+    }));
+
+    res.json({ success: true, retentionMinutes: updatedPad.retention_minutes || sanitized, files });
+  } catch (error) {
+    console.error('Retention update error:', error);
+    res.status(500).json({ error: 'Failed to update retention' });
+  }
+});
+
 // Upload file
 app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
   try {
@@ -351,10 +413,12 @@ app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
       return res.status(404).json({ error: 'Pad not found' });
     }
     
-    const isValid = await verifyPassword(password, pad.password_hash);
-    if (!isValid) {
-      console.error('[UPLOAD] Incorrect password');
-      return res.status(401).json({ error: 'Incorrect password' });
+    if (!pad.is_public) {
+      const isValid = await verifyPassword(password, pad.password_hash);
+      if (!isValid) {
+        console.error('[UPLOAD] Incorrect password');
+        return res.status(401).json({ error: 'Incorrect password' });
+      }
     }
     
     // Validate MIME
@@ -406,7 +470,8 @@ app.post('/api/upload/:padId', upload.single('file'), async (req, res) => {
     console.log('[UPLOAD] ✓ Uploaded to Cloudinary:', uploadResult.secure_url);
     
     // Calculate expiration (24 hours from now)
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const retentionMinutes = pad.retention_minutes || DEFAULT_RETENTION_MINUTES;
+    const expiresAt = new Date(Date.now() + retentionMinutes * 60 * 1000);
     
     // Save to database with Cloudinary URL
     const fileData = await db.addFile(

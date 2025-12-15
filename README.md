@@ -11,7 +11,7 @@ A secure note-taking platform with AI summaries, Cloudinary uploads, and auto-ex
 ## Features at a Glance
 
 - Custom URLs with public or bcrypt-protected private notes.
-- Auto-save every two seconds and auto-delete 24 hours after the last edit.
+- Auto-save every two seconds and configurable auto-delete windows (1 hour to 7 days).
 - Google Gemini summaries with document-level insights.
 - Cloudinary uploads (PDF, JPG, PNG, DOCX up to 10 MB).
 - Responsive UI, dark mode, and security logging backed by PostgreSQL.
@@ -64,6 +64,7 @@ npm start               # or npm run dev
 - `POST /api/create-pad` – create a public or private note.
 - `POST /api/login` – authenticate (skips password for public notes).
 - `POST /api/pad/:padId/save` – persist content and reset the auto-delete timer.
+- `POST /api/pad/:padId/retention` – adjust the auto-delete window for a pad.
 - `POST /api/upload/:padId` – upload attachments to Cloudinary.
 - `POST /api/summarize/:padId` – request a Gemini summary.
 
@@ -78,9 +79,10 @@ npm start               # or npm run dev
 
 - Bookmark your note URL; private notes require the matching password.
 - For public notes, leave the password field empty on the access form.
-- Re-save content after major edits to restart the 24-hour retention window.
+- Public notes can adjust the auto-delete timer (1 hour to 7 days) in the editor.
+- Re-save content after major edits to restart the retention countdown.
 - Use dark mode before lengthy writing sessions to reduce eye strain.
-- Upload optimized PDFs or images under 10 MB for faster load times and download important files promptly—they expire after 24 hours.
+- Upload optimized PDFs or images under 10 MB for faster load times and download important files promptly—they expire after your configured window.
 
 ## Maintainer
 
