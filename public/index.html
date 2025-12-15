@@ -325,28 +325,34 @@
         <button class="modal-close" id="closeInfo" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
-        <h4>Features</h4>
-        <ul>
-          <li><strong>Custom URLs:</strong> Create memorable, unique URLs for your notepads</li>
-          <li><strong>Password Protection:</strong> bcrypt-hashed passwords keep your notes secure</li>
-          <li><strong>Auto-Save:</strong> Changes are saved automatically every few seconds</li>
-          <li><strong>AI Summarization:</strong> Get concise summaries powered by Google Gemini</li>
-          <li><strong>File Uploads:</strong> Attach PDFs, images, and documents (max 10MB)</li>
-          <li><strong>Dark Mode:</strong> Toggle between light and dark themes</li>
-        </ul>
+        <div class="info-section">
+          <h4>Features</h4>
+          <ul>
+            <li><strong>Custom URLs:</strong> Create memorable, unique URLs for your notepads</li>
+            <li><strong>Password Protection:</strong> bcrypt-hashed passwords keep your notes secure</li>
+            <li><strong>Auto-Save:</strong> Changes are saved automatically every few seconds</li>
+            <li><strong>AI Summarization:</strong> Get concise summaries powered by Google Gemini</li>
+            <li><strong>File Uploads:</strong> Attach PDFs, images, and documents (max 10MB)</li>
+            <li><strong>Dark Mode:</strong> Toggle between light and dark themes</li>
+          </ul>
+        </div>
 
-        <h4>Privacy & Security</h4>
-        <p>
-          Your notes are stored securely with bcrypt password hashing (10 rounds). 
-          Only you can access your note with the correct URL and password combination.
-        </p>
+        <div class="info-section">
+          <h4>Privacy & Security</h4>
+          <p>
+            Your notes are stored securely with bcrypt password hashing (10 rounds). 
+            Only you can access your note with the correct URL and password combination.
+          </p>
+        </div>
 
-        <h4>File Management</h4>
-        <p>
-          <strong>Private notes:</strong> Files persist indefinitely without expiration.<br>
-          <strong>Public notes:</strong> Files auto-delete after your chosen retention period (1 hour to 7 days).<br>
-          Supported formats: PDF, JPG, PNG, DOCX (max 10MB per file).
-        </p>
+        <div class="info-section">
+          <h4>File Management</h4>
+          <p>
+            <strong>Private notes:</strong> Files persist indefinitely without expiration.<br>
+            <strong>Public notes:</strong> Files auto-delete after your chosen retention period (1 hour to 7 days).<br>
+            Supported formats: PDF, JPG, PNG, DOCX (max 10MB per file).
+          </p>
+        </div>
 
         <div class="info-section developer-section">
           <h3>About the Developer</h3>
